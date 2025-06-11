@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора</title>
+    <!-- Подключение Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Подключение скрипта Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Шрифты от Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Общие стили и анимация фона */
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #E5E7EB;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+        }
+        .animated-gradient {
+            background: linear-gradient(-45deg, #1d2b64, #f8cdda, #1d2b64, #f8cdda);
+            background-size: 400% 400%;
+            animation: gradient 25s ease infinite;
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        /* Плавные переходы для всех элементов */
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease-out, box-shadow 0.3s ease;
+        }
+        /* Анимация появления контента */
+        .tab-content {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Стиль для активной вкладки */
+        .tab-active {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+        }
+        /* Эффект при нажатии */
+        .btn-press:active {
+            transform: scale(0.96);
+        }
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+    </style>
+</head>
+<body class="animated-gradient">
+    <div id="app" class="min-h-screen p-4 lg:p-8">
+        <div class="max-w-7xl mx-auto">
+            <header class="text-center mb-6">
+                <h1 class="text-3xl lg:text-4xl font-bold text-white drop-shadow-lg">Панель управления</h1>
+                <p id="group-name" class="text-sm text-gray-300 drop-shadow-md">Группа: Загрузка...</p>
+            </header>
+            <nav class="flex justify-center bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl p-1 max-w-lg mx-auto mb-6">
+                <button onclick="switchTab('moderation')" class="tab-btn tab-active flex-1 py-2 px-4 rounded-lg">Модерация</button>
+                <button onclick="switchTab('stats')" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Статистика</button>
+                <button onclick="switchTab('logs')" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Логи</button>
+            </nav>
+            <main id="main-content">
+                <div id="moderation" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-1 space-y-6">
+                            <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
+                                <div class="flex items-center space-x-4">
+                                    <img id="user-avatar" src="https://placehold.co/64x64/333/fff?text=?" alt="Аватар пользователя" class="w-16 h-16 rounded-full border-2 border-purple-400">
+                                    <div>
+                                        <h2 id="user-name" class="text-xl font-bold text-white">Выберите пользователя</h2>
+                                        <p id="user-id" class="text-xs text-gray-400">ID: N/A</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
+                                <h3 class="text-lg font-semibold mb-4 text-white">Действия</h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <button onclick="handleAction('warn')" class="btn-press flex items-center justify-center bg-yellow-500/80 hover:bg-yellow-500 text-white font-bold py-3 px-4 rounded-xl"><span>Предупредить</span></button>
+                                    <button onclick="handleAction('mute')" class="btn-press flex items-center justify-center bg-blue-500/80 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl"><span>Заглушить</span></button>
+                                    <button onclick="handleAction('kick')" class="btn-press flex items-center justify-center bg-orange-500/80 hover:bg-orange-500 text-white font-bold py-3 px-4 rounded-xl"><span>Кикнуть</span></button>
+                                    <button onclick="handleAction('ban')" class="btn-press flex items-center justify-center bg-red-600/80 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-xl"><span>Забанить</span></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2 bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
+                            <h3 class="text-lg font-semibold mb-4 text-white">Участники чата</h3>
+                            <div id="user-list" class="space-y-2 max-h-60 lg:max-h-[30rem] overflow-y-auto pr-2">
+                                <!-- Пользователи будут добавлены сюда -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="stats" class="tab-content hidden"><!-- ... --></div>
+                <div id="logs" class="tab-content hidden"><!-- ... --></div>
+            </main>
+        </div>
+        <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out">
+            <p id="toast-message"></p>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // --- Получение параметров из URL ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const chatId = urlParams.get('chat_id');
+
+        // --- Тестовые данные (пока оставляем для отладки) ---
+        const mockData = { /* ... ваши тестовые данные ... */ };
+        let selectedUser = null;
+        
+        // --- Рендеринг ---
+        function renderUsers() { /* ... без изменений ... */ }
+        function renderStats() { /* ... без изменений ... */ }
+        function renderLogs() { /* ... без изменений ... */ }
+
+        function initialLoad() {
+            document.getElementById('group-name').textContent = `Группа: ${mockData.chat.title} (ID: ${chatId || 'N/A'})`;
+            renderUsers();
+            renderStats();
+            renderLogs();
+        }
+
+        function showToast(message, isError = false) { /* ... без изменений ... */ }
+
+        function selectUser(user) { /* ... без изменений ... */ }
+
+        // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
+        function handleAction(action) {
+            if (!selectedUser) {
+                showToast("Сначала выберите пользователя!", true);
+                return;
+            }
+            if (!chatId) {
+                showToast("ID чата не найден! Откройте приложение через кнопку в чате.", true);
+                return;
+            }
+
+            // Формируем объект с данными для отправки боту
+            const dataToSend = {
+                action: action,
+                user_id: selectedUser.id,
+                chat_id: chatId // Добавляем ID чата
+            };
+
+            console.log(`Отправка данных боту:`, dataToSend);
+            
+            // Отправляем данные боту в формате JSON
+            tg.sendData(JSON.stringify(dataToSend));
+            
+            showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена боту.`);
+        }
+
+        function switchTab(tabName) { /* ... без изменений ... */ }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                tg.ready();
+            } catch (error) {
+                console.error("Не удалось инициализировать Telegram Web App:", error);
+            }
+            initialLoad();
+        });
+    </script>
+</body>
+</html>
+
