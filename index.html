@@ -12,7 +12,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
     <style>
         /* Общие стили и анимация фона */
         body {
@@ -104,44 +103,150 @@
                         </div>
                     </div>
                 </div>
-                <div id="stats" class="tab-content hidden"><!-- ... --></div>
-                <div id="logs" class="tab-content hidden"><!-- ... --></div>
+                <div id="stats" class="tab-content hidden">
+                    <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
+                        <h3 class="text-lg font-semibold mb-4 text-white">Статистика чата</h3>
+                        <p id="stats-content" class="text-gray-300">Загрузка статистики...</p>
+                    </div>
+                </div>
+                <div id="logs" class="tab-content hidden">
+                    <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
+                        <h3 class="text-lg font-semibold mb-4 text-white">Логи действий</h3>
+                        <div id="logs-content" class="bg-black/20 p-3 rounded-lg text-sm font-mono text-gray-300 max-h-60 overflow-y-auto">
+                            <!-- Логи будут добавлены сюда -->
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
         <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out">
             <p id="toast-message"></p>
         </div>
     </div>
-
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-
-        // --- Получение параметров из URL ---
+        
         const urlParams = new URLSearchParams(window.location.search);
         const chatId = urlParams.get('chat_id');
-
-        // --- Тестовые данные (пока оставляем для отладки) ---
-        const mockData = { /* ... ваши тестовые данные ... */ };
-        let selectedUser = null;
         
-        // --- Рендеринг ---
-        function renderUsers() { /* ... без изменений ... */ }
-        function renderStats() { /* ... без изменений ... */ }
-        function renderLogs() { /* ... без изменений ... */ }
+        let selectedUser = null;
+        let chatMembers = []; // Здесь будут храниться реальные участники чата
+        let chatTitle = 'Неизвестная группа'; // Название группы
 
-        function initialLoad() {
-            document.getElementById('group-name').textContent = `Группа: ${mockData.chat.title} (ID: ${chatId || 'N/A'})`;
-            renderUsers();
-            renderStats();
-            renderLogs();
+        // --- Рендеринг пользователей ---
+        function renderUsers() {
+            const userListDiv = document.getElementById('user-list');
+            userListDiv.innerHTML = ''; // Очищаем список
+            if (chatMembers.length === 0) {
+                userListDiv.innerHTML = '<p class="text-gray-400">Пользователи не загружены. Убедитесь, что бот является администратором и имеет доступ к списку участников.</p>';
+            }
+
+            chatMembers.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'flex items-center p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer';
+                userDiv.onclick = () => selectUser(user);
+                userDiv.innerHTML = `
+                    <img src="${user.photo_url || 'https://placehold.co/40x40/333/fff?text=?'} " onerror="this.onerror=null;this.src='https://placehold.co/40x40/333/fff?text=?';" alt="Аватар" class="w-10 h-10 rounded-full mr-3">
+                    <div>
+                        <p class="font-medium text-white">${user.first_name || 'Неизвестно'} ${user.last_name || ''}</p>
+                        <p class="text-xs text-gray-400">ID: ${user.id}</p>
+                    </div>
+                `;
+                userListDiv.appendChild(userDiv);
+            });
         }
 
-        function showToast(message, isError = false) { /* ... без изменений ... */ }
+        // --- Рендеринг статистики (заглушка) ---
+        function renderStats() {
+            document.getElementById('stats-content').textContent = "Здесь будет статистика чата. Нужно реализовать на стороне бота.";
+        }
 
-        function selectUser(user) { /* ... без изменений ... */ }
+        // --- Рендеринг логов (заглушка) ---
+        function renderLogs() {
+            document.getElementById('logs-content').innerHTML = "<p>Здесь будут логи действий. Нужно реализовать на стороне бота.</p>";
+        }
 
-        // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ---
+        // --- Инициализация при загрузке ---
+        function initialLoad() {
+            // Устанавливаем название группы из Telegram Web App initDataUnsafe
+            if (tg.initDataUnsafe && tg.initDataUnsafe.chat && tg.initDataUnsafe.chat.title) {
+                chatTitle = tg.initDataUnsafe.chat.title;
+            }
+            document.getElementById('group-name').textContent = `Группа: ${chatTitle} (ID: ${chatId || 'N/A'})`;
+            
+            // Запрашиваем список участников у бота
+            requestChatMembers();
+
+            renderStats(); // Пока заглушка
+            renderLogs();  // Пока заглушка
+        }
+
+        // --- Функция для запроса списка участников у бота ---
+        function requestChatMembers() {
+            if (!chatId) {
+                showToast("ID чата не найден! Не могу запросить участников.", true);
+                return;
+            }
+            showToast("Загрузка участников чата...");
+            const dataToSend = {
+                action: 'get_chat_members',
+                chat_id: chatId
+            };
+            console.log("Запрос участников чата:", dataToSend);
+            tg.sendData(JSON.stringify(dataToSend));
+        }
+
+        // --- Обработка данных, полученных от бота ---
+        tg.onEvent('rawData', (data) => {
+            console.log("Получены данные от бота (rawData):", data);
+            try {
+                const parsedData = JSON.parse(data);
+                if (parsedData.status === 'success' && parsedData.action === 'chat_members') {
+                    chatMembers = parsedData.members;
+                    renderUsers();
+                    showToast("Участники чата загружены!");
+                } else if (parsedData.status === 'error') {
+                    showToast(`Ошибка от бота: ${parsedData.message}`, true);
+                } else if (parsedData.action === 'command_ack') { // Подтверждение выполнения команды
+                    // Do nothing, toast is already shown by handleAction
+                }
+            } catch (e) {
+                console.error("Ошибка парсинга rawData от бота:", e, data);
+                showToast("Ошибка при обработке данных от бота.", true);
+            }
+        });
+
+        // --- Отображение всплывающего сообщения ---
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+            toast.className = `fixed bottom-5 right-5 py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            
+            // Заставляем браузер пересчитать стили для анимации
+            void toast.offsetWidth; 
+            
+            toast.classList.remove('opacity-0', 'translate-y-10');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-10');
+            }, 3000);
+        }
+
+        // --- Выбор пользователя ---
+        function selectUser(user) {
+            selectedUser = user;
+            document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.co/64x64/333/fff?text=?';
+            document.getElementById('user-avatar').onerror = function() { this.onerror=null; this.src='https://placehold.co/64x64/333/fff?text=?'; }; // Fallback for broken images
+            document.getElementById('user-name').textContent = `${user.first_name || 'Неизвестно'} ${user.last_name || ''}`;
+            document.getElementById('user-id').textContent = `ID: ${user.id}`;
+            showToast(`Выбран пользователь: ${user.first_name || 'Неизвестно'}`);
+        }
+
+        // --- Отправка действия боту ---
         function handleAction(action) {
             if (!selectedUser) {
                 showToast("Сначала выберите пользователя!", true);
@@ -151,31 +256,42 @@
                 showToast("ID чата не найден! Откройте приложение через кнопку в чате.", true);
                 return;
             }
-
-            // Формируем объект с данными для отправки боту
+            
             const dataToSend = {
                 action: action,
                 user_id: selectedUser.id,
-                chat_id: chatId // Добавляем ID чата
+                chat_id: chatId
             };
-
             console.log(`Отправка данных боту:`, dataToSend);
             
-            // Отправляем данные боту в формате JSON
             tg.sendData(JSON.stringify(dataToSend));
             
             showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена боту.`);
         }
 
-        function switchTab(tabName) { /* ... без изменений ... */ }
+        // --- Переключение вкладок ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            document.getElementById(tabName).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('tab-active');
+                btn.classList.add('text-gray-300'); // Reset non-active color
+            });
+            event.target.classList.add('tab-active');
+            event.target.classList.remove('text-gray-300'); // Ensure active tab has white color
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 tg.ready();
+                initialLoad();
             } catch (error) {
                 console.error("Не удалось инициализировать Telegram Web App:", error);
+                showToast("Ошибка инициализации Web App.", true);
             }
-            initialLoad();
         });
     </script>
 </body>
