@@ -125,21 +125,25 @@
     </div>
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand();
         
+        console.log("Telegram Web App script loaded:", !!tg); // Проверяем, загружен ли объект tg
+        
+        // --- Получение параметров из URL ---
         const urlParams = new URLSearchParams(window.location.search);
         const chatId = urlParams.get('chat_id');
-        
+        console.log("chatId from URL:", chatId);
+
         let selectedUser = null;
         let chatMembers = []; // Здесь будут храниться реальные участники чата
         let chatTitle = 'Неизвестная группа'; // Название группы
 
         // --- Рендеринг пользователей ---
         function renderUsers() {
+            console.log("renderUsers called. Members:", chatMembers);
             const userListDiv = document.getElementById('user-list');
             userListDiv.innerHTML = ''; // Очищаем список
             if (chatMembers.length === 0) {
-                userListDiv.innerHTML = '<p class="text-gray-400">Пользователи не загружены. Убедитесь, что бот является администратором и имеет доступ к списку участников.</p>';
+                userListDiv.innerHTML = '<p class="text-gray-400">Пользователи не загружены или список пуст. Убедитесь, что бот является администратором и имеет доступ к списку участников.</p>';
             }
 
             chatMembers.forEach(user => {
@@ -169,9 +173,13 @@
 
         // --- Инициализация при загрузке ---
         function initialLoad() {
+            console.log("initialLoad called.");
             // Устанавливаем название группы из Telegram Web App initDataUnsafe
             if (tg.initDataUnsafe && tg.initDataUnsafe.chat && tg.initDataUnsafe.chat.title) {
                 chatTitle = tg.initDataUnsafe.chat.title;
+                console.log("Chat title from initDataUnsafe:", chatTitle);
+            } else {
+                console.log("tg.initDataUnsafe.chat.title not found. initDataUnsafe:", tg.initDataUnsafe);
             }
             document.getElementById('group-name').textContent = `Группа: ${chatTitle} (ID: ${chatId || 'N/A'})`;
             
@@ -184,8 +192,10 @@
 
         // --- Функция для запроса списка участников у бота ---
         function requestChatMembers() {
+            console.log("requestChatMembers called.");
             if (!chatId) {
                 showToast("ID чата не найден! Не могу запросить участников.", true);
+                console.error("requestChatMembers: chatId is missing.");
                 return;
             }
             showToast("Загрузка участников чата...");
@@ -193,8 +203,13 @@
                 action: 'get_chat_members',
                 chat_id: chatId
             };
-            console.log("Запрос участников чата:", dataToSend);
-            tg.sendData(JSON.stringify(dataToSend));
+            console.log("Отправка запроса на получение участников чата:", dataToSend);
+            try {
+                tg.sendData(JSON.stringify(dataToSend));
+            } catch (e) {
+                console.error("Ошибка при отправке данных боту через tg.sendData:", e);
+                showToast("Ошибка при отправке запроса боту.", true);
+            }
         }
 
         // --- Обработка данных, полученных от бота ---
@@ -208,11 +223,13 @@
                     showToast("Участники чата загружены!");
                 } else if (parsedData.status === 'error') {
                     showToast(`Ошибка от бота: ${parsedData.message}`, true);
+                    console.error("Ошибка от бота:", parsedData.message);
                 } else if (parsedData.action === 'command_ack') { // Подтверждение выполнения команды
                     // Do nothing, toast is already shown by handleAction
+                    console.log("Bot command acknowledged:", parsedData.command);
                 }
             } catch (e) {
-                console.error("Ошибка парсинга rawData от бота:", e, data);
+                console.error("Ошибка парсинга rawData от бота:", e, "Данные:", data);
                 showToast("Ошибка при обработке данных от бота.", true);
             }
         });
@@ -238,6 +255,7 @@
 
         // --- Выбор пользователя ---
         function selectUser(user) {
+            console.log("User selected:", user);
             selectedUser = user;
             document.getElementById('user-avatar').src = user.photo_url || 'https://placehold.co/64x64/333/fff?text=?';
             document.getElementById('user-avatar').onerror = function() { this.onerror=null; this.src='https://placehold.co/64x64/333/fff?text=?'; }; // Fallback for broken images
@@ -248,6 +266,7 @@
 
         // --- Отправка действия боту ---
         function handleAction(action) {
+            console.log("handleAction called with action:", action);
             if (!selectedUser) {
                 showToast("Сначала выберите пользователя!", true);
                 return;
@@ -264,13 +283,19 @@
             };
             console.log(`Отправка данных боту:`, dataToSend);
             
-            tg.sendData(JSON.stringify(dataToSend));
+            try {
+                tg.sendData(JSON.stringify(dataToSend));
+            } catch (e) {
+                console.error("Ошибка при отправке данных боту через tg.sendData:", e);
+                showToast("Ошибка при отправке запроса боту.", true);
+            }
             
             showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена боту.`);
         }
 
         // --- Переключение вкладок ---
         function switchTab(tabName) {
+            console.log("Switching tab to:", tabName);
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.add('hidden');
             });
@@ -284,9 +309,19 @@
             event.target.classList.remove('text-gray-300'); // Ensure active tab has white color
         }
 
+        // --- ОбработчикDOMContentLoaded ---
         document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOMContentLoaded fired.");
             try {
                 tg.ready();
+                console.log("tg.ready() called.");
+                tg.expand(); // Расширяем Web App на полный экран
+                console.log("tg.expand() called.");
+
+                // Дополнительные логи для initData и initDataUnsafe
+                console.log("tg.initData:", tg.initData);
+                console.log("tg.initDataUnsafe:", tg.initDataUnsafe);
+
                 initialLoad();
             } catch (error) {
                 console.error("Не удалось инициализировать Telegram Web App:", error);
