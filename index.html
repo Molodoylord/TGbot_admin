@@ -313,6 +313,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOMContentLoaded fired.");
             try {
+                // Проверяем, существует ли объект Telegram.WebApp
+                if (typeof window.Telegram === 'undefined' || typeof window.Telegram.WebApp === 'undefined') {
+                    console.error("Telegram Web App SDK is not loaded or available.");
+                    showToast("SDK Telegram Web App не загружен.", true);
+                    return;
+                }
+
                 tg.ready();
                 console.log("tg.ready() called.");
                 tg.expand(); // Расширяем Web App на полный экран
