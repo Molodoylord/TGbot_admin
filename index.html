@@ -4,16 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель администратора</title>
-    <!-- Подключение Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Подключение скрипта Telegram Web App -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Шрифты от Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Общие стили и анимация фона */
         body {
             font-family: 'Inter', sans-serif;
             color: #E5E7EB;
@@ -31,29 +27,20 @@
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-        /* Плавные переходы для всех элементов */
         * {
             transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease-out, box-shadow 0.3s ease;
         }
-        /* Анимация появления контента */
-        .tab-content {
-            animation: fadeIn 0.5s ease-in-out;
-        }
+        .tab-content { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        /* Стиль для активной вкладки */
         .tab-active {
             background-color: rgba(255, 255, 255, 0.15);
             color: white;
             font-weight: 600;
         }
-        /* Эффект при нажатии */
-        .btn-press:active {
-            transform: scale(0.96);
-        }
-        /* Кастомный скроллбар */
+        .btn-press:active { transform: scale(0.96); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
@@ -68,9 +55,9 @@
                 <p id="group-name" class="text-sm text-gray-300 drop-shadow-md">Группа: Загрузка...</p>
             </header>
             <nav class="flex justify-center bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl p-1 max-w-lg mx-auto mb-6">
-                <button onclick="switchTab('moderation')" class="tab-btn tab-active flex-1 py-2 px-4 rounded-lg">Модерация</button>
-                <button onclick="switchTab('stats')" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Статистика</button>
-                <button onclick="switchTab('logs')" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Логи</button>
+                <button onclick="switchTab('moderation', event)" class="tab-btn tab-active flex-1 py-2 px-4 rounded-lg">Модерация</button>
+                <button onclick="switchTab('stats', event)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Статистика</button>
+                <button onclick="switchTab('logs', event)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Логи</button>
             </nav>
             <main id="main-content">
                 <div id="moderation" class="tab-content">
@@ -96,42 +83,31 @@
                             </div>
                         </div>
                         <div class="lg:col-span-2 bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                            <h3 class="text-lg font-semibold mb-4 text-white">Участники чата</h3>
+                            <h3 class="text-lg font-semibold mb-4 text-white">Администраторы чата</h3>
                             <div id="user-list" class="space-y-2 max-h-60 lg:max-h-[30rem] overflow-y-auto pr-2">
-                                <!-- Пользователи будут добавлены сюда -->
                                 <p class="text-gray-400">Загрузка участников...</p>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div id="stats" class="tab-content hidden">
-                    <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                        <h3 class="text-lg font-semibold mb-4 text-white">Статистика чата</h3>
-                        <p id="stats-content" class="text-gray-300">Загрузка статистики...</p>
-                    </div>
-                </div>
-                <div id="logs" class="tab-content hidden">
-                    <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                        <h3 class="text-lg font-semibold mb-4 text-white">Логи действий</h3>
-                        <div id="logs-content" class="bg-black/20 p-3 rounded-lg text-sm font-mono text-gray-300 max-h-60 overflow-y-auto">
-                            <!-- Логи будут добавлены сюда -->
-                        </div>
-                    </div>
-                </div>
+                <div id="stats" class="tab-content hidden"><div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10"><h3 class="text-lg font-semibold mb-4 text-white">Статистика чата</h3><p id="stats-content" class="text-gray-300">Загрузка статистики...</p></div></div>
+                <div id="logs" class="tab-content hidden"><div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10"><h3 class="text-lg font-semibold mb-4 text-white">Логи действий</h3><div id="logs-content" class="bg-black/20 p-3 rounded-lg text-sm font-mono text-gray-300 max-h-60 overflow-y-auto"></div></div></div>
             </main>
         </div>
-        <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out">
-            <p id="toast-message"></p>
-        </div>
+        <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out"><p id="toast-message"></p></div>
     </div>
 <script>
     const tg = window.Telegram.WebApp;
 
-    // --- Глобальные переменные ---
+    // --- КОНФИГУРАЦИЯ ---
+    // ВАЖНО! Укажите здесь полный базовый URL вашего бэкенда (сервера).
+    // Этот URL должен совпадать с тем, что вы видите в консоли ngrok или на вашем хостинге.
+    // Пример: "https://your-new-ngrok-url.ngrok-free.app"
+    const API_BASE_URL = "https://0f3f-149-40-62-53.ngrok-free.app"; // <-- ИЗМЕНИТЕ ЭТОТ АДРЕС!
+
     let selectedUser = null;
     let currentChatId = null;
 
-    // --- Элементы DOM ---
     const groupNameEl = document.getElementById('group-name');
     const userListDiv = document.getElementById('user-list');
     const userAvatarEl = document.getElementById('user-avatar');
@@ -140,24 +116,20 @@
     const toastEl = document.getElementById('toast');
     const toastMessageEl = document.getElementById('toast-message');
 
-    // --- Основная логика ---
-
-    // Функция для показа всплывающего сообщения
     function showToast(message, isError = false) {
         toastMessageEl.textContent = message;
-        toastEl.className = `fixed bottom-5 right-5 py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+        toastEl.className = `fixed bottom-5 right-5 py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out ${isError ? 'bg-red-600' : 'bg-green-600'}`;
         void toastEl.offsetWidth;
         toastEl.classList.remove('opacity-0', 'translate-y-10');
         toastEl.classList.add('opacity-100', 'translate-y-0');
         setTimeout(() => {
             toastEl.classList.remove('opacity-100', 'translate-y-0');
             toastEl.classList.add('opacity-0', 'translate-y-10');
-        }, 3000);
+        }, 4000);
     }
 
-    // Функция для отрисовки списка пользователей
     function renderUsers(members) {
-        userListDiv.innerHTML = ''; // Очищаем список
+        userListDiv.innerHTML = '';
         if (!members || members.length === 0) {
             userListDiv.innerHTML = '<p class="text-gray-400">Администраторы чата не найдены. Убедитесь, что бот является администратором.</p>';
             return;
@@ -166,27 +138,27 @@
             const userDiv = document.createElement('div');
             userDiv.className = 'flex items-center p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer';
             userDiv.onclick = () => selectUser(user);
+            const userName = user.name || 'Имя не указано';
+            const userUsername = user.username ? `@${user.username}` : 'N/A';
             userDiv.innerHTML = `
-                <img src="${user.photo_url || 'https://placehold.co/40x40/333/fff?text=?'}" onerror="this.onerror=null;this.src='https://placehold.co/40x40/333/fff?text=?';" alt="Аватар" class="w-10 h-10 rounded-full mr-3">
+                <img src="https://placehold.co/40x40/333/fff?text=${userName.charAt(0)}" alt="Аватар" class="w-10 h-10 rounded-full mr-3">
                 <div>
-                    <p class="font-medium text-white">${user.first_name} ${user.last_name || ''}</p>
-                    <p class="text-xs text-gray-400">@${user.username || 'N/A'}</p>
-                </div>
-            `;
+                    <p class="font-medium text-white">${userName}</p>
+                    <p class="text-xs text-gray-400">${userUsername}</p>
+                </div>`;
             userListDiv.appendChild(userDiv);
         });
     }
 
-    // Функция выбора пользователя
     function selectUser(user) {
         selectedUser = user;
-        userAvatarEl.src = user.photo_url || 'https://placehold.co/64x64/333/fff?text=?';
-        userNameEl.textContent = `${user.first_name} ${user.last_name || ''}`;
+        const userName = user.name || 'Имя не указано';
+        userAvatarEl.src = `https://placehold.co/64x64/333/fff?text=${userName.charAt(0)}`;
+        userNameEl.textContent = userName;
         userIdEl.textContent = `ID: ${user.id}`;
-        showToast(`Выбран пользователь: ${user.first_name}`);
+        showToast(`Выбран пользователь: ${userName}`);
     }
 
-    // Функция отправки действия боту
     function handleAction(action) {
         if (!selectedUser) {
             showToast("Сначала выберите пользователя!", true);
@@ -196,80 +168,65 @@
             showToast("ID чата не определен!", true);
             return;
         }
-        
-        const dataToSend = {
-            action: action,
-            user_id: selectedUser.id,
-            chat_id: currentChatId
-        };
-        
+        const dataToSend = { action, user_id: selectedUser.id, chat_id: currentChatId };
         tg.sendData(JSON.stringify(dataToSend));
-        showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена.`);
-        // Можно добавить tg.close() если нужно закрывать окно после действия
+        showToast(`Команда '${action}' для ${selectedUser.name} отправлена.`);
     }
 
-    // Функция переключения вкладок
-    function switchTab(tabName) {
+    function switchTab(tabName, event) {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
         document.getElementById(tabName).classList.remove('hidden');
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('tab-active');
+            btn.classList.remove('tab-active', 'text-white');
             btn.classList.add('text-gray-300');
         });
-        event.currentTarget.classList.add('tab-active');
+        event.currentTarget.classList.add('tab-active', 'text-white');
         event.currentTarget.classList.remove('text-gray-300');
     }
 
-    // Инициализация приложения при загрузке страницы
     document.addEventListener('DOMContentLoaded', async () => {
         try {
             tg.ready();
             tg.expand();
-
             const urlParams = new URLSearchParams(window.location.search);
             currentChatId = urlParams.get('chat_id');
-
-            if (!currentChatId) {
-                throw new Error("ID чата не найден в URL.");
-            }
-            if (!tg.initData) {
-                throw new Error("Данные Telegram (initData) недоступны.");
-            }
-
+            if (!currentChatId) throw new Error("ID чата не найден в URL.");
+            if (!tg.initData) console.warn("initData не найдено. Запросы к API не будут авторизованы. Это нормально при локальном тестировании.");
+            
             groupNameEl.textContent = `Группа: Загрузка... (ID: ${currentChatId})`;
-
-            // ВАЖНО: Замените URL на ваш реальный URL вебхука от ngrok/сервера
-            const apiUrl = `https://0f3f-149-40-62-53.ngrok-free.app/api/chat_info?chat_id=${currentChatId}`;
-
+            const apiUrl = `${API_BASE_URL.replace(/\/$/, '')}/api/chat_info?chat_id=${currentChatId}`;
+            
             const response = await fetch(apiUrl, {
-                headers: {
-                    'Authorization': `tma ${tg.initData}`
-                }
+                headers: { ...(tg.initData && {'Authorization': `tma ${tg.initData}`}) }
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`Ошибка сервера: ${errorData.error || response.statusText}`);
+                const errorText = await response.text();
+                if (errorText.trim().startsWith("<!DOCTYPE html>")) {
+                    throw new Error(`Ошибка сети: Не удалось связаться с сервером. Проверьте, что сервер запущен и URL в константе API_BASE_URL указан верно.`);
+                }
+                try {
+                    const errorData = JSON.parse(errorText);
+                    throw new Error(`Ошибка сервера: ${errorData.error || response.statusText}`);
+                } catch (e) {
+                    throw new Error(`Неизвестный ответ от сервера: ${response.statusText}`);
+                }
             }
 
             const data = await response.json();
-            
-            // Обновляем UI полученными данными
             groupNameEl.textContent = `Группа: ${data.chat_title} (ID: ${currentChatId})`;
             renderUsers(data.members);
             
-            // Заглушки для других вкладок
             document.getElementById('stats-content').textContent = "Статистика в разработке.";
             document.getElementById('logs-content').innerHTML = "<p>Логи в разработке.</p>";
-
         } catch (error) {
             console.error("Ошибка инициализации:", error);
             showToast(error.message, true);
             groupNameEl.textContent = "Ошибка загрузки данных";
-            userListDiv.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+            userListDiv.innerHTML = `<p class="text-red-400 p-4">${error.message}</p>`;
         }
     });
-
 </script>
 </body>
 </html>
+
