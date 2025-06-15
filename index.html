@@ -69,7 +69,7 @@
                 <h1 class="text-3xl lg:text-4xl font-bold text-white drop-shadow-lg">Панель управления</h1>
                 <p id="group-name" class="text-sm text-gray-300 drop-shadow-md">Группа: Загрузка...</p>
             </header>
-            
+                         
             <!-- Навигация -->
             <nav class="flex justify-center bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl p-1 max-w-lg mx-auto mb-6">
                 <button onclick="switchTab('moderation', this)" class="tab-btn tab-active flex-1 py-2 px-4 rounded-lg">Модерация</button>
@@ -135,11 +135,9 @@
             <p id="toast-message"></p>
         </div>
     </div>
-
 <script>
-    // --- НАСТРОЙКА ---
-    // ВАЖНО: Замените этот URL на публичный адрес вашего сервера (IP или домен)
-    const API_BASE_URL = 'http://45.12.72.198:8080';
+    // --- ИСПРАВЛЕНИЕ: Динамическое определение URL сервера ---
+    const API_BASE_URL = window.location.origin;
 
     // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ЭЛЕМЕНТЫ DOM ---
     const tg = window.Telegram.WebApp;
@@ -155,7 +153,6 @@
     const toastMessageEl = document.getElementById('toast-message');
 
     // --- ОСНОВНАЯ ЛОГИКА ---
-
     /**
      * Показывает всплывающее уведомление (тост).
      * @param {string} message - Текст сообщения.
@@ -166,7 +163,7 @@
         toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out z-50 ${isError ? 'bg-red-600' : 'bg-green-500'}`;
         
         // Сбрасываем анимацию для повторного показа
-        void toastEl.offsetWidth; 
+        void toastEl.offsetWidth;
         
         toastEl.classList.remove('opacity-0', 'translate-y-10');
         toastEl.classList.add('opacity-100', 'translate-y-0');
@@ -187,12 +184,11 @@
             userListDiv.innerHTML = '<p class="text-gray-400">Администраторы в этом чате не найдены. Убедитесь, что бот является администратором и у него есть права.</p>';
             return;
         }
-
         members.forEach(user => {
             const userDiv = document.createElement('div');
             userDiv.className = 'flex items-center p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors duration-200';
             userDiv.onclick = () => selectUser(user);
-            
+                         
             const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
             const username = user.username ? `@${user.username}` : 'ID: ' + user.id;
             const placeholderImg = `https://placehold.co/40x40/5c5c8a/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
@@ -216,7 +212,7 @@
         selectedUser = user;
         const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
         const placeholderImg = `https://placehold.co/64x64/5c5c8a/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
-
+        
         userAvatarEl.src = user.photo_url || placeholderImg;
         userNameEl.textContent = fullName;
         userIdEl.textContent = `ID: ${user.id}`;
@@ -246,8 +242,6 @@
         // Отправляем данные боту
         tg.sendData(JSON.stringify(dataToSend));
         showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена.`);
-        
-        // tg.close(); // Можно раскомментировать, если нужно закрывать окно после действия
     }
 
     /**
@@ -281,6 +275,7 @@
             // Получаем chat_id из URL
             const urlParams = new URLSearchParams(window.location.search);
             currentChatId = urlParams.get('chat_id');
+
             if (!currentChatId) {
                 throw new Error("ID чата не найден в URL. Откройте панель из группы.");
             }
