@@ -76,7 +76,6 @@
                 <button onclick="switchTab('stats', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Статистика</button>
                 <button onclick="switchTab('logs', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Логи</button>
             </nav>
-
             <!-- Основной контент -->
             <main id="main-content">
                 <!-- ВКЛАДКА МОДЕРАЦИИ -->
@@ -136,14 +135,14 @@
         </div>
     </div>
 <script>
-    // --- ИСПРАВЛЕНИЕ: Динамическое определение URL сервера ---
-    const API_BASE_URL = window.location.origin;
+    // --- НАСТРОЙКА ---
+    // ВАЖНО: Это публичный HTTPS-адрес вашего сервера, где запущен бот
+    const API_BASE_URL = 'https://nk13admin.ru';
 
     // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ЭЛЕМЕНТЫ DOM ---
     const tg = window.Telegram.WebApp;
     let selectedUser = null;
     let currentChatId = null;
-
     const groupNameEl = document.getElementById('group-name');
     const userListDiv = document.getElementById('user-list');
     const userAvatarEl = document.getElementById('user-avatar');
@@ -162,12 +161,10 @@
         toastMessageEl.textContent = message;
         toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out z-50 ${isError ? 'bg-red-600' : 'bg-green-500'}`;
         
-        // Сбрасываем анимацию для повторного показа
-        void toastEl.offsetWidth;
+        void toastEl.offsetWidth; // Сброс анимации
         
         toastEl.classList.remove('opacity-0', 'translate-y-10');
         toastEl.classList.add('opacity-100', 'translate-y-0');
-
         setTimeout(() => {
             toastEl.classList.remove('opacity-100', 'translate-y-0');
             toastEl.classList.add('opacity-0', 'translate-y-10');
@@ -192,7 +189,6 @@
             const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
             const username = user.username ? `@${user.username}` : 'ID: ' + user.id;
             const placeholderImg = `https://placehold.co/40x40/5c5c8a/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
-
             userDiv.innerHTML = `
                 <img src="${user.photo_url || placeholderImg}" onerror="this.onerror=null;this.src='${placeholderImg}';" alt="Аватар" class="w-10 h-10 rounded-full mr-4 object-cover">
                 <div>
@@ -239,7 +235,7 @@
             chat_id: currentChatId
         };
         
-        // Отправляем данные боту
+        // Отправляем данные боту через Web App API
         tg.sendData(JSON.stringify(dataToSend));
         showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена.`);
     }
@@ -254,7 +250,6 @@
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
         // Показываем нужную
         document.getElementById(tabName).classList.remove('hidden');
-
         // Обновляем стили кнопок
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('tab-active', 'text-white');
@@ -271,11 +266,10 @@
         try {
             tg.ready();
             tg.expand(); // Расширяем Web App на весь экран
-
+            
             // Получаем chat_id из URL
             const urlParams = new URLSearchParams(window.location.search);
             currentChatId = urlParams.get('chat_id');
-
             if (!currentChatId) {
                 throw new Error("ID чата не найден в URL. Откройте панель из группы.");
             }
@@ -285,7 +279,6 @@
                 // Это может произойти, если открыть HTML файл напрямую в браузере
                 throw new Error("Данные Telegram (initData) недоступны. Откройте приложение внутри Telegram.");
             }
-
             groupNameEl.textContent = `Группа: Загрузка... (ID: ${currentChatId})`;
             
             const apiUrl = `${API_BASE_URL}/api/chat_info?chat_id=${currentChatId}`;
@@ -302,13 +295,11 @@
                 const errorData = await response.json().catch(() => ({error: response.statusText}));
                 throw new Error(`Ошибка сервера: ${errorData.error || `Статус ${response.status}`}`);
             }
-
             const data = await response.json();
             
             // Обновляем UI полученными данными
             groupNameEl.textContent = `Группа: ${data.chat_title}`;
             renderUsers(data.members);
-
         } catch (error) {
             console.error("Ошибка инициализации:", error);
             showToast(error.message, true);
