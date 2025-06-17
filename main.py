@@ -37,10 +37,6 @@ WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = getenv("PORT", "8080")
 API_PATH = "/api/chat_info"
 
-if not all([BOT_TOKEN, WEB_APP_URL, DATABASE_URL]):
-    logger.critical("КРИТИЧЕСКАЯ ОШИБКА: Не загружены BOT_TOKEN, WEB_APP_URL или DATABASE_URL!")
-    exit()
-
 # --- 4. ИНИЦИАЛИЗАЦИЯ ---
 dp = Dispatcher()
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
