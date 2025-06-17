@@ -4,17 +4,18 @@ import logging
 import json
 import hmac
 import hashlib
-import os # <--- ИСПРАВЛЕНИЕ: Добавлен недостающий импорт
+import os
 from os import getenv
 from urllib.parse import unquote, parse_qsl
 from collections import OrderedDict
 import asyncpg
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.enums import ParseMode, ChatMemberStatus
-from aiogram.filters import Command
+from aiogram.filters import CommandStart, Command
+# --- ИСПРАВЛЕНИЕ: Добавлен импорт ChatPermissions ---
 from aiogram.types import (
     Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton,
-    ChatMemberUpdated, CallbackQuery
+    ChatMemberUpdated, CallbackQuery, ChatPermissions
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.client.default import DefaultBotProperties
@@ -36,8 +37,7 @@ WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = getenv("PORT", "8080")
 API_PATH = "/api/chat_info"
 
-# --- 3. ИСПРАВЛЕНИЕ: ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ ---
-# Собираем строку подключения к БД из переменных окружения Dokploy
+# --- 3. ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ ---
 DB_USER = getenv("DB_USER")
 DB_PASS = getenv("DB_PASSWORD")
 DB_NAME = getenv("DB_NAME")
@@ -79,6 +79,15 @@ async def is_user_admin_in_chat(user_id: int, chat_id: int) -> bool:
         return False
 
 # --- 6. ОБРАБОТЧИКИ СОБЫТИЙ БОТА (Handlers) ---
+@dp.message(CommandStart(), F.chat.type == "private")
+async def command_start_handler(message: Message):
+    await message.answer(
+        "Привет! Я бот для управления группами.\n\n"
+        "Добавьте меня в свою группу и дайте права администратора.\n\n"
+        "Затем используйте команду /admin здесь, в личном чате, "
+        "чтобы получить доступ к панели управления."
+    )
+
 @dp.my_chat_member()
 async def on_my_chat_member(update: ChatMemberUpdated, db_pool: asyncpg.Pool):
     chat_id, chat_title = update.chat.id, update.chat.title
@@ -86,27 +95,25 @@ async def on_my_chat_member(update: ChatMemberUpdated, db_pool: asyncpg.Pool):
         await database.add_chat(db_pool, chat_id, chat_title)
         me = await bot.get_me()
         keyboard = InlineKeyboardBuilder().button(text="🤖 Перейти к боту", url=f"https://t.me/{me.username}?start=group_admin")
-        await bot.send_message(update.chat.id, f"✅ Панель для группы '{chat_title}' активна. Администраторы могут вызвать её командой /admin.", reply_markup=keyboard.as_markup())
+        await bot.send_message(update.chat.id, f"✅ Панель для группы '{chat_title}' активна. Администраторы могут вызвать её командой /admin в личном чате со мной.", reply_markup=keyboard.as_markup())
     elif update.new_chat_member.status in [ChatMemberStatus.MEMBER, ChatMemberStatus.LEFT, ChatMemberStatus.KICKED]:
         await database.remove_chat(db_pool, chat_id)
         if chat_id in chat_recent_members: del chat_recent_members[chat_id]
 
-@dp.message(Command("admin"))
+@dp.message(Command("admin"), F.chat.type == "private")
 async def command_admin_panel(message: Message, db_pool: asyncpg.Pool):
-    # --- УЛУЧШЕНИЕ: Показываем только те чаты, где пользователь является админом ---
     user_id = message.from_user.id
     all_managed_chats = await database.get_managed_chats(db_pool)
     
     admin_in_chats = []
-    # Асинхронно и параллельно проверяем права в каждом чате
     check_tasks = [is_user_admin_in_chat(user_id, chat['chat_id']) for chat in all_managed_chats]
-    results = await asyncio.gather(*check_tasks, return_exceptions=True) # Добавил return_exceptions для отладки
+    results = await asyncio.gather(*check_tasks, return_exceptions=True)
     
     for i, res in enumerate(results):
         if isinstance(res, Exception):
             logger.warning(f"Не удалось проверить права для чата {all_managed_chats[i]['chat_id']}: {res}")
             continue
-        if res: # Если is_user_admin_in_chat вернул True
+        if res:
             admin_in_chats.append(all_managed_chats[i])
 
     if not admin_in_chats:
@@ -122,7 +129,7 @@ async def command_admin_panel(message: Message, db_pool: asyncpg.Pool):
 async def select_chat_callback(query: CallbackQuery, db_pool: asyncpg.Pool):
     chat_id = int(query.data.split("_")[2])
     if not await is_user_admin_in_chat(user_id=query.from_user.id, chat_id=chat_id):
-        return await query.answer("Доступ запрещен. Вы должны быть администратором в этом чате.", show_alert=True)
+        return await query.answer("Доступ запрещен.", show_alert=True)
     
     chats = await database.get_managed_chats(db_pool)
     chat_title = next((c['chat_title'] for c in chats if c['chat_id'] == chat_id), "Неизвестный чат")
@@ -151,22 +158,48 @@ async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
         data = json.loads(message.web_app_data.data)
         action, user_to_moderate, chat_id = data.get("action"), data.get("user_id"), int(data.get("chat_id"))
         admin_id = message.from_user.id
-        if not all([action, user_to_moderate, chat_id]): raise ValueError("Неполные данные от WebApp")
-        if not await is_user_admin_in_chat(user_id=admin_id, chat_id=chat_id): return await message.answer("У вас нет прав администратора в этом чате.")
         
-        # Получаем информацию о пользователе для логов/сообщений
+        if not all([action, user_to_moderate, chat_id]): 
+            raise ValueError("Неполные данные от WebApp")
+        
+        if not await is_user_admin_in_chat(user_id=admin_id, chat_id=chat_id):
+            return await message.answer("У вас нет прав администратора в этом чате.")
+        
+        # Получаем информацию о пользователе, чтобы упомянуть его по имени
         user_to_moderate_info = await bot.get_chat(user_to_moderate)
         user_name = user_to_moderate_info.full_name
+        # Создаем "упоминание" в виде ссылки, чтобы пользователь получил уведомление
+        user_mention = f"<a href='tg://user?id={user_to_moderate}'>{user_name}</a>"
+        admin_mention = message.from_user.full_name
 
+        # --- ИСПРАВЛЕНИЕ: Добавлена логика для всех кнопок ---
         if action == "ban":
             await bot.ban_chat_member(chat_id=chat_id, user_id=user_to_moderate)
             await database.ban_user(db_pool, chat_id, user_to_moderate, admin_id)
-            await message.answer(f"✅ Пользователь {user_name} ({user_to_moderate}) забанен.")
+            await bot.send_message(chat_id, f"🚫 Администратор {admin_mention} забанил пользователя {user_mention}.")
+            await message.answer(f"✅ Пользователь {user_name} забанен.")
+            
         elif action == "kick":
             await bot.ban_chat_member(chat_id=chat_id, user_id=user_to_moderate)
             await bot.unban_chat_member(chat_id=chat_id, user_id=user_to_moderate, only_if_banned=True)
-            # При кике не добавляем в нашу БД банов, т.к. пользователь может вернуться
-            await message.answer(f"✅ Пользователь {user_name} ({user_to_moderate}) кикнут.")
+            await bot.send_message(chat_id, f"👋 Администратор {admin_mention} исключил пользователя {user_mention}.")
+            await message.answer(f"✅ Пользователь {user_name} кикнут.")
+
+        elif action == "warn":
+            await bot.send_message(chat_id, f"⚠️ Администратор {admin_mention} вынес предупреждение пользователю {user_mention}.")
+            await message.answer(f"✅ Предупреждение пользователю {user_name} отправлено.")
+
+        elif action == "mute":
+            # Ограничиваем права пользователя (запрещаем отправку сообщений)
+            # Для установки временного мьюта нужно будет добавить выбор времени в WebApp
+            await bot.restrict_chat_member(
+                chat_id=chat_id,
+                user_id=user_to_moderate,
+                permissions=ChatPermissions(can_send_messages=False)
+            )
+            await bot.send_message(chat_id, f"🔇 Администратор {admin_mention} ограничил возможность писать для {user_mention}.")
+            await message.answer(f"✅ Пользователь {user_name} был заглушен (mute).")
+            
     except Exception as e:
         logger.error(f"Ошибка обработки данных из WebApp: {e}", exc_info=True)
         await message.answer("❌ Произошла ошибка при выполнении действия.")
@@ -230,7 +263,7 @@ async def on_startup(app: web.Application):
     try:
         pool = await asyncpg.create_pool(DATABASE_URL)
         app['db_pool'] = pool
-        await database.init_db(pool) # Инициализируем таблицы
+        await database.init_db(pool)
         logger.info("Пул подключений к БД успешно создан и таблицы инициализированы.")
     except Exception as e:
         logger.critical(f"Не удалось подключиться к базе данных: {e}", exc_info=True)
@@ -265,8 +298,6 @@ async def main():
     try:
         await site.start()
         logger.info(f"Веб-сервер запущен на http://{WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
-        # Передаем пул соединений в хэндлеры aiogram
-        # Этот способ (через `dp[]`) должен работать
         dp['db_pool'] = app['db_pool']
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
@@ -278,5 +309,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот остановлен.")
-
 
