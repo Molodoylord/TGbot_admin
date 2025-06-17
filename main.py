@@ -33,7 +33,6 @@ load_dotenv()
 # --- 2. ЧТЕНИЕ ПЕРЕМЕННЫХ ИЗ .ENV ---
 BOT_TOKEN = getenv("BOT_TOKEN")
 WEB_APP_URL = getenv("WEB_APP_URL")
-DATABASE_URL = getenv("DATABASE_URL") # <-- Новая переменная
 WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = getenv("PORT", "8080")
 API_PATH = "/api/chat_info"
