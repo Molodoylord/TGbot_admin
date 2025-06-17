@@ -13,10 +13,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Общие стили и анимация фона */
         body {
             font-family: 'Inter', sans-serif;
-            color: #E5E7EB; /* Светло-серый текст */
+            color: #E5E7EB;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             overflow-x: hidden;
@@ -31,11 +30,9 @@
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-        /* Плавные переходы для всех элементов */
         * {
             transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease-out, box-shadow 0.3s ease;
         }
-        /* Анимация появления контента */
         .tab-content {
             animation: fadeIn 0.5s ease-in-out;
         }
@@ -43,18 +40,15 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        /* Стиль для активной вкладки */
         .tab-active {
             background-color: rgba(255, 255, 255, 0.15);
             color: white;
             font-weight: 600;
         }
-        /* Эффект при нажатии на кнопки */
         .btn-press:active {
             transform: scale(0.96);
             filter: brightness(0.9);
         }
-        /* Кастомный скроллбар */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
@@ -64,24 +58,19 @@
 <body class="animated-gradient">
     <div id="app" class="min-h-screen p-4 md:p-6">
         <div class="max-w-7xl mx-auto">
-            <!-- Заголовок -->
             <header class="text-center mb-6">
                 <h1 class="text-3xl lg:text-4xl font-bold text-white drop-shadow-lg">Панель управления</h1>
                 <p id="group-name" class="text-sm text-gray-300 drop-shadow-md">Группа: Загрузка...</p>
             </header>
                          
-            <!-- Навигация -->
             <nav class="flex justify-center bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl p-1 max-w-lg mx-auto mb-6">
                 <button onclick="switchTab('moderation', this)" class="tab-btn tab-active flex-1 py-2 px-4 rounded-lg">Модерация</button>
                 <button onclick="switchTab('stats', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Статистика</button>
                 <button onclick="switchTab('logs', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Логи</button>
             </nav>
-            <!-- Основной контент -->
             <main id="main-content">
-                <!-- ВКЛАДКА МОДЕРАЦИИ -->
                 <div id="moderation" class="tab-content">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <!-- Левая колонка: инфо о пользователе и действия -->
                         <div class="lg:col-span-1 space-y-6">
                             <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
                                 <div class="flex items-center space-x-4">
@@ -102,7 +91,6 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Правая колонка: список участников -->
                         <div class="lg:col-span-2 bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
                             <h3 class="text-lg font-semibold mb-4 text-white">Администраторы и участники</h3>
                             <div id="user-list" class="space-y-2 max-h-80 lg:max-h-[30rem] overflow-y-auto pr-2">
@@ -111,25 +99,22 @@
                         </div>
                     </div>
                 </div>
-                <!-- ВКЛАДКА СТАТИСТИКИ (скрыта) -->
                 <div id="stats" class="tab-content hidden">
                     <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
                         <h3 class="text-lg font-semibold mb-4 text-white">Статистика чата</h3>
-                        <p id="stats-content" class="text-gray-300">Раздел в разработке. Здесь может быть аналитика по сообщениям, активности пользователей и т.д.</p>
+                        <p id="stats-content" class="text-gray-300">Раздел в разработке.</p>
                     </div>
                 </div>
-                <!-- ВКЛАДКА ЛОГОВ (скрыта) -->
                 <div id="logs" class="tab-content hidden">
                     <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
                         <h3 class="text-lg font-semibold mb-4 text-white">Логи действий</h3>
                         <div id="logs-content" class="bg-black/20 p-3 rounded-lg text-sm font-mono text-gray-300 h-80 overflow-y-auto">
-                            <p>Раздел в разработке. Здесь будут отображаться последние действия модераторов.</p>
+                            <p>Раздел в разработке.</p>
                         </div>
                     </div>
                 </div>
             </main>
         </div>
-        <!-- Всплывающее уведомление (тост) -->
         <div id="toast" class="fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out z-50">
             <p id="toast-message"></p>
         </div>
@@ -139,7 +124,6 @@
     const tg = window.Telegram.WebApp;
     let selectedUser = null;
     let currentChatId = null;
-
     const groupNameEl = document.getElementById('group-name');
     const userListDiv = document.getElementById('user-list');
     const userAvatarEl = document.getElementById('user-avatar');
@@ -148,11 +132,6 @@
     const toastEl = document.getElementById('toast');
     const toastMessageEl = document.getElementById('toast-message');
     
-    /**
-     * Показывает всплывающее уведомление (тост).
-     * @param {string} message - Текст сообщения.
-     * @param {boolean} isError - Если true, тост будет красным (ошибка).
-     */
     function showToast(message, isError = false) {
         toastMessageEl.textContent = message;
         toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out z-50 ${isError ? 'bg-red-600' : 'bg-green-500'}`;
@@ -167,31 +146,23 @@
         }, 3000);
     }
 
-    /**
-     * Отрисовывает список пользователей в правой колонке.
-     * @param {Array} members - Массив объектов пользователей с сервера.
-     */
     function renderUsers(members) {
         userListDiv.innerHTML = ''; 
         if (!members || members.length === 0) {
-            userListDiv.innerHTML = '<p class="text-gray-400">Участники не найдены. Убедитесь, что бот является администратором и у него есть все права.</p>';
+            userListDiv.innerHTML = '<p class="text-gray-400">Участники не найдены.</p>';
             return;
         }
         members.forEach(user => {
             const userDiv = document.createElement('div');
-            // *** ИЗМЕНЕНИЕ: Добавлен justify-between для корректного отображения значка бана ***
             userDiv.className = 'flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors duration-200';
             userDiv.onclick = () => selectUser(user);
                          
             const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
             const username = user.username ? `@${user.username}` : 'ID: ' + user.id;
             const placeholderImg = `https://placehold.co/40x40/5c5c8a/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
-
-            // *** ИЗМЕНЕНИЕ: Добавлен значок бана. Сервер должен возвращать поле `is_banned: true/false` для каждого участника ***
             const bannedBadge = user.is_banned 
                 ? '<span class="bg-red-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Забанен</span>'
                 : '';
-
             userDiv.innerHTML = `
                 <div class="flex items-center overflow-hidden mr-2">
                     <img src="${user.photo_url || placeholderImg}" onerror="this.onerror=null;this.src='${placeholderImg}';" alt="Аватар" class="w-10 h-10 rounded-full mr-4 object-cover flex-shrink-0">
@@ -206,10 +177,6 @@
         });
     }
 
-    /**
-     * Обрабатывает выбор пользователя из списка.
-     * @param {object} user - Объект выбранного пользователя.
-     */
     function selectUser(user) {
         selectedUser = user;
         const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
@@ -222,10 +189,6 @@
         showToast(`Выбран пользователь: ${fullName}`);
     }
 
-    /**
-     * Отправляет команду модерации на сервер.
-     * @param {string} action - Название действия (warn, mute, kick, ban).
-     */
     function handleAction(action) {
         if (!selectedUser) {
             showToast("Сначала выберите пользователя из списка!", true);
@@ -236,22 +199,19 @@
             return;
         }
         
+        // --- ИСПРАВЛЕНИЕ: Убран ненужный admin_id ---
         const dataToSend = {
             action: action,
             user_id: selectedUser.id,
-            chat_id: currentChatId,
-            admin_id: tg.initDataUnsafe?.user?.id 
+            chat_id: currentChatId
         };
         
+        // Отправляем данные боту
         tg.sendData(JSON.stringify(dataToSend));
-        showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена.`);
+        // --- ИСПРАВЛЕНИЕ: Более понятное сообщение ---
+        showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена боту на исполнение.`);
     }
 
-    /**
-     * Переключает видимые вкладки.
-     * @param {string} tabName - ID вкладки для показа.
-     * @param {HTMLElement} clickedButton - Кнопка, на которую нажали.
-     */
     function switchTab(tabName, clickedButton) {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
         document.getElementById(tabName).classList.remove('hidden');
@@ -264,9 +224,6 @@
         clickedButton.classList.remove('text-gray-300');
     }
 
-    /**
-     * Функция инициализации приложения при загрузке страницы.
-     */
     async function initialize() {
         try {
             tg.ready();
@@ -277,11 +234,9 @@
             if (!currentChatId) {
                 throw new Error("ID чата не найден в URL. Откройте панель из группы.");
             }
-
             if (!tg.initData) {
                 throw new Error("Данные Telegram (initData) недоступны. Откройте приложение внутри Telegram.");
             }
-
             groupNameEl.textContent = `Группа: Загрузка... (ID: ${currentChatId})`;
             
             const apiUrl = `${API_BASE_URL}/api/chat_info?chat_id=${currentChatId}`;
@@ -291,7 +246,6 @@
                     'Authorization': `tma ${tg.initData}`
                 }
             });
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({error: `Ошибка сети или неверный JSON`}));
                 throw new Error(`Ошибка сервера: ${errorData.error || `Статус ${response.status}`}`);
@@ -300,7 +254,6 @@
             
             groupNameEl.textContent = `Группа: ${data.chat_title}`;
             renderUsers(data.members);
-
         } catch (error) {
             console.error("Ошибка инициализации:", error);
             showToast(error.message, true);
@@ -308,7 +261,6 @@
             userListDiv.innerHTML = `<p class="text-red-400 p-4 bg-red-900/50 rounded-lg">${error.message}</p>`;
         }
     }
-
     document.addEventListener('DOMContentLoaded', initialize);
 </script>
 </body>
