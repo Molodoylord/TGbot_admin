@@ -62,7 +62,6 @@
     </style>
 </head>
 <body class="animated-gradient">
-
     <div id="app" class="min-h-screen p-4 md:p-6">
         <div class="max-w-7xl mx-auto">
             <!-- Заголовок -->
@@ -77,7 +76,6 @@
                 <button onclick="switchTab('stats', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Статистика</button>
                 <button onclick="switchTab('logs', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Логи</button>
             </nav>
-
             <!-- Основной контент -->
             <main id="main-content">
                 <!-- ВКЛАДКА МОДЕРАЦИИ -->
@@ -136,13 +134,8 @@
             <p id="toast-message"></p>
         </div>
     </div>
-
 <script>
-    // --- ИСПРАВЛЕНИЕ: Динамическое определение URL сервера ---
-    // Это позволяет приложению работать на любом домене без изменения кода.
     const API_BASE_URL = window.location.origin;
-
-    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ЭЛЕМЕНТЫ DOM ---
     const tg = window.Telegram.WebApp;
     let selectedUser = null;
     let currentChatId = null;
@@ -154,9 +147,7 @@
     const userIdEl = document.getElementById('user-id');
     const toastEl = document.getElementById('toast');
     const toastMessageEl = document.getElementById('toast-message');
-
-    // --- ОСНОВНАЯ ЛОГИКА ---
-
+    
     /**
      * Показывает всплывающее уведомление (тост).
      * @param {string} message - Текст сообщения.
@@ -166,12 +157,10 @@
         toastMessageEl.textContent = message;
         toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out z-50 ${isError ? 'bg-red-600' : 'bg-green-500'}`;
         
-        // Сбрасываем анимацию для повторного показа
         void toastEl.offsetWidth;
         
         toastEl.classList.remove('opacity-0', 'translate-y-10');
         toastEl.classList.add('opacity-100', 'translate-y-0');
-
         setTimeout(() => {
             toastEl.classList.remove('opacity-100', 'translate-y-0');
             toastEl.classList.add('opacity-0', 'translate-y-10');
@@ -183,28 +172,35 @@
      * @param {Array} members - Массив объектов пользователей с сервера.
      */
     function renderUsers(members) {
-        userListDiv.innerHTML = ''; // Очищаем старый список
+        userListDiv.innerHTML = ''; 
         if (!members || members.length === 0) {
             userListDiv.innerHTML = '<p class="text-gray-400">Участники не найдены. Убедитесь, что бот является администратором и у него есть все права.</p>';
             return;
         }
-
         members.forEach(user => {
             const userDiv = document.createElement('div');
-            userDiv.className = 'flex items-center p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors duration-200';
+            // *** ИЗМЕНЕНИЕ: Добавлен justify-between для корректного отображения значка бана ***
+            userDiv.className = 'flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors duration-200';
             userDiv.onclick = () => selectUser(user);
                          
             const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
             const username = user.username ? `@${user.username}` : 'ID: ' + user.id;
-            // Плейсхолдер для аватара с первой буквой имени
             const placeholderImg = `https://placehold.co/40x40/5c5c8a/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
 
+            // *** ИЗМЕНЕНИЕ: Добавлен значок бана. Сервер должен возвращать поле `is_banned: true/false` для каждого участника ***
+            const bannedBadge = user.is_banned 
+                ? '<span class="bg-red-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Забанен</span>'
+                : '';
+
             userDiv.innerHTML = `
-                <img src="${user.photo_url || placeholderImg}" onerror="this.onerror=null;this.src='${placeholderImg}';" alt="Аватар" class="w-10 h-10 rounded-full mr-4 object-cover">
-                <div>
-                    <p class="font-medium text-white">${fullName}</p>
-                    <p class="text-xs text-gray-400">${username}</p>
+                <div class="flex items-center overflow-hidden mr-2">
+                    <img src="${user.photo_url || placeholderImg}" onerror="this.onerror=null;this.src='${placeholderImg}';" alt="Аватар" class="w-10 h-10 rounded-full mr-4 object-cover flex-shrink-0">
+                    <div class="overflow-hidden">
+                        <p class="font-medium text-white truncate">${fullName}</p>
+                        <p class="text-xs text-gray-400 truncate">${username}</p>
+                    </div>
                 </div>
+                ${bannedBadge}
             `;
             userListDiv.appendChild(userDiv);
         });
@@ -240,17 +236,13 @@
             return;
         }
         
-        // Эти данные будут отправлены вашему боту
         const dataToSend = {
             action: action,
             user_id: selectedUser.id,
             chat_id: currentChatId,
-            // Дополнительно можно передать данные об администраторе, который выполняет действие
             admin_id: tg.initDataUnsafe?.user?.id 
         };
         
-        // Отправляем данные боту через Telegram Web App API
-        // Бот получит эти данные в виде update с полем `web_app_data`.
         tg.sendData(JSON.stringify(dataToSend));
         showToast(`Команда '${action}' для ${selectedUser.first_name} отправлена.`);
     }
@@ -261,12 +253,9 @@
      * @param {HTMLElement} clickedButton - Кнопка, на которую нажали.
      */
     function switchTab(tabName, clickedButton) {
-        // Скрываем все вкладки
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-        // Показываем нужную
         document.getElementById(tabName).classList.remove('hidden');
-
-        // Обновляем стили кнопок
+        
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('tab-active', 'text-white');
             btn.classList.add('text-gray-300');
@@ -281,34 +270,24 @@
     async function initialize() {
         try {
             tg.ready();
-            tg.expand(); // Расширяем Web App на весь экран
-
-            // **ВАЖНО**: `chat_id` должен передаваться в URL при открытии Web App.
-            // Например: https://yourdomain.com/index.html?chat_id=-100123456789
+            tg.expand();
+            
             const urlParams = new URLSearchParams(window.location.search);
             currentChatId = urlParams.get('chat_id');
-
             if (!currentChatId) {
                 throw new Error("ID чата не найден в URL. Откройте панель из группы.");
             }
 
-            // Проверяем наличие initData. Без них Web App не авторизован.
             if (!tg.initData) {
-                // Это может произойти, если открыть HTML файл напрямую в браузере
                 throw new Error("Данные Telegram (initData) недоступны. Откройте приложение внутри Telegram.");
             }
 
             groupNameEl.textContent = `Группа: Загрузка... (ID: ${currentChatId})`;
             
-            // Формируем URL для запроса к вашему бэкенду
             const apiUrl = `${API_BASE_URL}/api/chat_info?chat_id=${currentChatId}`;
             
-            // Запрашиваем данные о чате с вашего бэкенда
             const response = await fetch(apiUrl, {
                 headers: {
-                    // Отправляем initData для авторизации на бэкенде.
-                    // Ваш бэкенд ДОЛЖЕН проверять эти данные, чтобы убедиться,
-                    // что запрос пришел от легитимного пользователя Telegram.
                     'Authorization': `tma ${tg.initData}`
                 }
             });
@@ -317,10 +296,8 @@
                 const errorData = await response.json().catch(() => ({error: `Ошибка сети или неверный JSON`}));
                 throw new Error(`Ошибка сервера: ${errorData.error || `Статус ${response.status}`}`);
             }
-
             const data = await response.json();
             
-            // Обновляем UI полученными данными
             groupNameEl.textContent = `Группа: ${data.chat_title}`;
             renderUsers(data.members);
 
@@ -332,7 +309,6 @@
         }
     }
 
-    // Запускаем инициализацию после полной загрузки страницы
     document.addEventListener('DOMContentLoaded', initialize);
 </script>
 </body>
