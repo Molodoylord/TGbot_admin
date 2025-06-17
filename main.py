@@ -82,9 +82,8 @@ async def is_user_admin_in_chat(user_id: int, chat_id: int) -> bool:
 async def command_start_handler(message: Message):
     await message.answer(
         "Привет! Я бот для управления группами.\n\n"
-        "Добавьте меня в свою группу и дайте права администратора.\n\n"
-        "Затем используйте команду /admin здесь, в личном чате, "
-        "чтобы получить доступ к панели управления."
+        "Добавьте меня в свою группу и дайте права администратора (бан, отправка сообщений, ограничение участников).\n\n"
+        "Затем используйте команду /admin здесь, чтобы получить доступ к панели управления."
     )
 
 @dp.my_chat_member()
@@ -151,79 +150,84 @@ async def remember_member_handler(message: Message):
     while len(chat_recent_members[chat_id]) > MAX_RECENT_MEMBERS_PER_CHAT:
         chat_recent_members[chat_id].popitem(last=False)
 
-# --- ИСПРАВЛЕНИЕ: Полная переработка обработчика с детальной диагностикой ошибок ---
 @dp.message(F.web_app_data)
 async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
     admin_id = message.from_user.id
+    logger.info(f"--- Получен запрос от WebApp от администратора {admin_id} ---")
     
     try:
         data = json.loads(message.web_app_data.data)
-        logger.info(f"Получены данные из WebApp от {admin_id}: {data}")
+        logger.info(f"Шаг 1: Данные успешно распарсены: {data}")
 
         action = data.get("action")
         user_id_to_moderate = data.get("user_id")
         chat_id_str = data.get("chat_id")
 
         if not all([action, user_id_to_moderate, chat_id_str]):
-            raise ValueError("Неполные данные от WebApp (отсутствует action, user_id или chat_id)")
-
+            raise ValueError(f"Неполные данные от WebApp. action={action}, user_id={user_id_to_moderate}, chat_id={chat_id_str}")
+        
+        logger.info(f"Шаг 2: Все необходимые поля получены. Действие: {action}, Цель: {user_id_to_moderate}, Чат: {chat_id_str}")
         chat_id = int(chat_id_str)
         
+        logger.info(f"Шаг 3: Проверка прав администратора {admin_id} в чате {chat_id}...")
         if not await is_user_admin_in_chat(user_id=admin_id, chat_id=chat_id):
+            logger.warning(f"ОТКАЗ: Пользователь {admin_id} не является админом в чате {chat_id}.")
             return await message.answer("<b>Ошибка прав:</b> Вы не являетесь администратором в целевом чате.")
+        logger.info("...Права администратора подтверждены.")
         
-        # Получаем информацию о пользователе, чтобы красиво его упомянуть
         user_to_moderate_info = await bot.get_chat(user_id_to_moderate)
         user_name = user_to_moderate_info.full_name
         user_mention = f"<a href='tg://user?id={user_id_to_moderate}'>{user_name}</a>"
         admin_mention = message.from_user.full_name
         
-        # --- Основной блок логики ---
+        logger.info(f"Шаг 4: Попытка выполнить действие '{action}'...")
         try:
             if action == "ban":
                 await bot.ban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate)
                 await database.ban_user(db_pool, chat_id, user_id_to_moderate, admin_id)
                 await bot.send_message(chat_id, f"🚫 Администратор {admin_mention} забанил пользователя {user_mention}.")
-                await message.answer(f"✅ Пользователь {user_name} успешно забанен в группе.")
+                await message.answer(f"✅ Пользователь {user_name} успешно забанен.")
             
             elif action == "kick":
                 await bot.ban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate)
                 await bot.unban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate, only_if_banned=True)
                 await bot.send_message(chat_id, f"👋 Администратор {admin_mention} исключил пользователя {user_mention}.")
-                await message.answer(f"✅ Пользователь {user_name} успешно кикнут из группы.")
+                await message.answer(f"✅ Пользователь {user_name} успешно кикнут.")
 
             elif action == "warn":
                 await bot.send_message(chat_id, f"⚠️ Администратор {admin_mention} вынес предупреждение пользователю {user_mention}. Пожалуйста, соблюдайте правила.")
-                await message.answer(f"✅ Предупреждение пользователю {user_name} отправлено в группу.")
+                await message.answer(f"✅ Предупреждение пользователю {user_name} отправлено.")
 
             elif action == "mute":
                 await bot.restrict_chat_member(
-                    chat_id=chat_id,
-                    user_id=user_id_to_moderate,
+                    chat_id=chat_id, user_id=user_id_to_moderate,
                     permissions=ChatPermissions(can_send_messages=False)
                 )
                 await bot.send_message(chat_id, f"🔇 Администратор {admin_mention} ограничил возможность писать для {user_mention}.")
-                await message.answer(f"✅ Пользователь {user_name} был заглушен (mute) в группе.")
+                await message.answer(f"✅ Пользователь {user_name} был заглушен (mute).")
             
             else:
-                await message.answer(f"Неизвестное действие: `{action}`")
+                raise ValueError(f"Неизвестное действие: `{action}`")
+            
+            logger.info(f"...Действие '{action}' успешно выполнено.")
 
         except TelegramAPIError as e:
-            logger.error(f"Ошибка API Telegram при действии '{action}': {e.message}")
+            logger.error(f"ОШИБКА API TELEGRAM при действии '{action}': {e.message}")
             await message.answer(
                 f"❌ <b>Не удалось выполнить действие '{action}'.</b>\n"
-                f"<b>Причина:</b> {e.message}\n\n"
-                f"<i>Это часто происходит, если у бота недостаточно прав в группе. "
-                f"Убедитесь, что бот является администратором и у него есть права на бан, "
-                f"ограничение пользователей и отправку сообщений.</i>"
+                f"<b>Причина от Telegram:</b> {e.message}\n\n"
+                f"<i>Пожалуйста, проверьте права бота в группе (см. Шаг 2 в руководстве). "
+                f"У него должны быть права на бан/ограничение пользователей.</i>"
             )
             
     except Exception as e:
         logger.error(f"Критическая ошибка в web_app_data_handler: {e}", exc_info=True)
-        await message.answer(f"❌ Произошла внутренняя ошибка сервера при обработке вашего запроса.")
+        await message.answer(f"❌ Произошла внутренняя ошибка сервера: {e}")
+    finally:
+        logger.info("--- Обработка запроса от WebApp завершена ---")
 
 
-# --- 7. API ДЛЯ WEB APP ---
+# --- 7. API ДЛЯ WEB APP (без изменений) ---
 async def get_chat_info_api_handler(request: web.Request):
     db_pool = request.app['db_pool']
     bot_from_app = request.app["bot"]
@@ -276,7 +280,7 @@ async def index_handler(request: web.Request):
         logger.error(f"Файл index.html не найден по пути: {index_path}")
         return web.Response(text='index.html not found', status=404)
 
-# --- 8. ЗАПУСК БОТА И ВЕБ-СЕРВЕРА ---
+# --- 8. ЗАПУСК БОТА И ВЕБ-СЕРВЕРА (без изменений) ---
 async def on_startup(app: web.Application):
     logger.info("Создание пула подключений к базе данных...")
     try:
@@ -318,6 +322,7 @@ async def main():
         await site.start()
         logger.info(f"Веб-сервер запущен на http://{WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
         dp['db_pool'] = app['db_pool']
+        await bot.delete_webhook(drop_pending_updates=True) # Очищаем старые "зависшие" апдейты
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         await runner.cleanup()
@@ -328,4 +333,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот остановлен.")
-
