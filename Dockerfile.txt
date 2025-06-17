@@ -1,0 +1,36 @@
+# Используем официальный образ Python
+FROM python:3.11-slim
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем файл зависимостей
+COPY requirements.txt .
+
+# Устанавливаем Python зависимости
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем исходный код приложения
+COPY main.py .
+COPY database.py .
+COPY index.html .
+
+# Создаем пользователя для безопасности
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Открываем порт для веб-сервера
+EXPOSE 8080
+
+# Устанавливаем переменные окружения по умолчанию
+ENV PORT=8080
+ENV WEB_SERVER_HOST=0.0.0.0
+
+# Запускаем приложение
+CMD ["python", "main.py"] 
