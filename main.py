@@ -39,10 +39,19 @@ WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = getenv("PORT", "8080")
 API_PATH = "/api/chat_info"
 
-# --- 3. ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ ---
-DATABASE_URL = getenv("DATABASE_URL")
-if not DATABASE_URL:
-    logger.critical("Переменная DATABASE_URL не установлена! Бот не может запуститься.")
+# --- 3. ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ (ИСПРАВЛЕНО) ---
+DB_USER = getenv("DB_USER")
+DB_PASS = getenv("DB_PASSWORD")
+DB_NAME = getenv("DB_NAME")
+DB_HOST = getenv("DB_HOST")
+DB_PORT = getenv("DB_PORT")
+DATABASE_URL = None
+
+if all([DB_USER, DB_PASS, DB_NAME, DB_HOST, DB_PORT]):
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    logger.info("Строка подключения к БД успешно собрана из переменных окружения.")
+else:
+    logger.critical("Не все переменные для подключения к БД установлены! (DB_USER, DB_PASS, DB_NAME, DB_HOST, DB_PORT). Бот не может запуститься.")
     exit()
 
 # --- 4. ИНИЦИАЛИЗАЦИЯ ---
@@ -90,7 +99,6 @@ async def on_my_chat_member(update: ChatMemberUpdated, db_pool: asyncpg.Pool):
         await database.add_chat(db_pool, chat_id, chat_title)
         me = await bot.get_me()
         
-        # --- ИЗМЕНЕНИЕ: Проверка ключевых прав ---
         can_ban = update.new_chat_member.can_ban_members
         can_restrict = update.new_chat_member.can_restrict_members
         
@@ -301,13 +309,13 @@ async def on_shutdown(app: web.Application):
     logger.info("Пул подключений закрыт.")
 
 async def main():
-    if not BOT_TOKEN:
-        logger.critical("BOT_TOKEN не найден! Завершение работы.")
+    if not BOT_TOKEN or not DATABASE_URL:
+        logger.critical("BOT_TOKEN или DATABASE_URL не найдены! Завершение работы.")
         return
         
     app = web.Application()
     app["bot"] = bot
-    dp['db_pool'] = app # Pass the app to have access to the pool later
+    dp['db_pool'] = app 
     
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
@@ -325,7 +333,6 @@ async def main():
     try:
         await site.start()
         logger.info(f"Веб-сервер запущен на http://{WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
-        # Pass pool to dispatcher
         dp['db_pool'] = app['db_pool']
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
@@ -338,5 +345,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот остановлен.")
-
 
