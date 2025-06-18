@@ -40,7 +40,7 @@ WEB_APP_URL = getenv("WEB_APP_URL")
 WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = getenv("PORT", "8080")
 
-# --- НОВИНКА: Настройки Webhook ---
+# --- Настройки Webhook ---
 # Путь для получения обновлений от Telegram. Делаем его "секретным" с помощью токена.
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 # Полный URL для вебхука.
@@ -93,7 +93,6 @@ async def is_user_admin_in_chat(user_id: int, chat_id: int) -> bool:
         return False
 
 # --- 6. ОБРАБОТЧИКИ СОБЫТИЙ БОТА (Handlers) ---
-# Эти обработчики остаются без изменений, их логика верна.
 @dp.message(CommandStart(), F.chat.type == "private")
 async def command_start_handler(message: Message):
     await message.answer(
@@ -289,32 +288,37 @@ async def index_handler(request: web.Request):
         logger.error(f"Файл index.html не найден по пути: {index_path}")
         return web.Response(text='index.html not found', status=404)
 
-# --- НОВИНКА: Обработчик для Webhook ---
+# --- ИСПРАВЛЕНИЕ: Обработчик для Webhook ---
 async def webhook_route_handler(request: web.Request):
     """
-    Принимает обновления от Telegram и передает их в диспетчер.
+    Принимает обновления от Telegram и КОРРЕКТНО передает их в диспетчер.
     """
     try:
+        # Получаем пул соединений из контекста приложения aiohttp
+        db_pool = request.app['db_pool']
+        
+        # Получаем данные, создаем объект Update
         update_data = await request.json()
         logger.info(f"ПОЛУЧЕН WEBHOOK: {update_data}")
-        
         update = Update.model_validate(update_data, context={"bot": bot})
-        await dp.feed_update(update)
+        
+        # **КЛЮЧЕВОЕ ИЗМЕНЕНИЕ**: Передаем и update, и db_pool в диспетчер
+        # Теперь aiogram сможет передать db_pool в нужные хэндлеры
+        await dp.feed_update(update, db_pool=db_pool)
         
         return web.Response()
     except Exception as e:
         logger.error(f"Ошибка в обработчике webhook: {e}", exc_info=True)
         return web.Response(status=500)
 
-# --- 8. ИЗМЕНЕННЫЙ ЗАПУСК БОТА И ВЕБ-СЕРВЕРА ---
-
+# --- 8. ЗАПУСК БОТА И ВЕБ-СЕРВЕРА ---
 async def on_startup(app: web.Application):
     """Действия при старте приложения."""
     logger.info("Установка webhook...")
     await bot.set_webhook(
         url=WEBHOOK_URL,
         allowed_updates=dp.resolve_used_update_types(),
-        drop_pending_updates=True # Удаляем накопившиеся обновления
+        drop_pending_updates=True
     )
     logger.info(f"Webhook успешно установлен на URL: {WEBHOOK_URL}")
 
@@ -336,7 +340,6 @@ async def main():
         logger.critical("Одна из критически важных переменных не найдена (BOT_TOKEN, DATABASE_URL, WEB_APP_URL)! Завершение работы.")
         return
 
-    # Создаем пул соединений с БД один раз
     try:
         db_pool = await asyncpg.create_pool(DATABASE_URL)
         await database.init_db(db_pool)
@@ -344,24 +347,18 @@ async def main():
     except Exception as e:
         logger.critical(f"Не удалось подключиться к базе данных: {e}", exc_info=True)
         exit(1)
-
-    # Передаем пул в диспетчер и веб-приложение
-    dp["db_pool"] = db_pool
     
     app = web.Application()
     app["bot"] = bot
     app["db_pool"] = db_pool
     
-    # Регистрируем хуки жизненного цикла
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
 
-    # Регистрируем роуты
     app.router.add_get('/', index_handler)
     app.router.add_get(API_PATH, get_chat_info_api_handler)
-    app.router.add_post(WEBHOOK_PATH, webhook_route_handler) # Роут для вебхука
+    app.router.add_post(WEBHOOK_PATH, webhook_route_handler)
 
-    # Настраиваем CORS
     cors = aiohttp_cors.setup(app, defaults={
         "*": aiohttp_cors.ResourceOptions(
             allow_credentials=True, 
@@ -373,7 +370,6 @@ async def main():
     for route in list(app.router.routes()):
         cors.add(route)
 
-    # Запускаем веб-сервер
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, WEB_SERVER_HOST, int(WEB_SERVER_PORT))
@@ -382,7 +378,6 @@ async def main():
     await site.start()
     logger.info("Приложение успешно запущено.")
     
-    # Бесконечный цикл для поддержания работы приложения
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
