@@ -35,6 +35,8 @@ load_dotenv()
 # --- 2. ЧТЕНИЕ ПЕРЕМЕННЫХ ---
 BOT_TOKEN = getenv("BOT_TOKEN")
 WEB_APP_URL = getenv("WEB_APP_URL")
+# --- НОВОЕ: Читаем секретный ключ ---
+WEBHOOK_SECRET = getenv("WEBHOOK_SECRET") 
 WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = getenv("PORT", "8080")
 
@@ -84,6 +86,7 @@ async def is_user_admin_in_chat(user_id: int, chat_id: int) -> bool:
         return False
 
 # --- 6. ОБРАБОТЧИКИ СОБЫТИЙ БОТА ---
+# ... (все обработчики команд и сообщений остаются без изменений) ...
 @dp.message(CommandStart(), F.chat.type == "private")
 async def command_start_handler(message: Message):
     await message.answer(
@@ -160,47 +163,44 @@ async def remember_member_handler(message: Message):
 
 @dp.message(F.web_app_data)
 async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
-    logger.info("--- [ШАГ 1] Вход в обработчик web_app_data ---")
+    logger.info("--- [WebApp] Вход в обработчик web_app_data ---")
     try:
         admin_id = message.from_user.id
         data_str = message.web_app_data.data
-        logger.info(f"--- [ШАГ 2] Получены данные от WebApp. Администратор: {admin_id}. Данные: {data_str} ---")
+        logger.info(f"--- [WebApp] Получены данные: {data_str} ---")
         data = json.loads(data_str)
         action = data.get("action")
         user_id_to_moderate = data.get("user_id")
         chat_id_str = data.get("chat_id")
-        logger.info(f"--- [ШАГ 3] Данные распарсены: action={action}, user_id={user_id_to_moderate}, chat_id={chat_id_str} ---")
+
         if not all([action, user_id_to_moderate, chat_id_str]):
-            logger.warning("--- [ОШИБКА] Неполные данные от WebApp. Прекращение работы. ---")
+            logger.warning(f"--- [WebApp] Неполные данные от WebApp: {data_str} ---")
             return await message.answer("Ошибка: получены неполные данные от приложения.")
+        
         chat_id = int(chat_id_str)
-        logger.info("--- [ШАГ 4] Проверка прав администратора... ---")
+        logger.info(f"--- [WebApp] Action '{action}' on user {user_id_to_moderate} in chat {chat_id} by admin {admin_id}")
+
         if not await is_user_admin_in_chat(user_id=admin_id, chat_id=chat_id):
-            logger.warning(f"--- [ОШИБКА] ОТКАЗ В ДОСТУПЕ: Пользователь {admin_id} не админ в чате {chat_id}. ---")
+            logger.warning(f"--- [WebApp] ОТКАЗ В ДОСТУПЕ: Пользователь {admin_id} не админ в чате {chat_id}. ---")
             return await message.answer("<b>Ошибка прав:</b> Вы не являетесь администратором в целевом чате.")
-        logger.info(f"--- [ШАГ 5] Права подтверждены. Получение информации о пользователе {user_id_to_moderate}... ---")
+        
         user_to_moderate_info = await bot.get_chat(user_id_to_moderate)
         user_name = user_to_moderate_info.full_name
         user_mention = f"<a href='tg://user?id={user_id_to_moderate}'>{user_name}</a>"
         admin_mention = message.from_user.full_name
-        logger.info(f"--- [ШАГ 6] Информация о пользователе получена. Выполняется действие: '{action}' ---")
+
         if action == "ban":
-            logger.info(f"--- [ACTION: BAN] Попытка забанить пользователя {user_id_to_moderate} в чате {chat_id} ---")
             await bot.ban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate)
-            logger.info(f"--- [ACTION: BAN] Пользователь успешно забанен через API. Запись в БД... ---")
             await database.ban_user(db_pool, chat_id, user_id_to_moderate, admin_id)
-            logger.info(f"--- [ACTION: BAN] Запись в БД добавлена. Отправка сообщения в чат... ---")
             await bot.send_message(chat_id, f"🚫 Администратор {admin_mention} забанил пользователя {user_mention}.")
-            logger.info(f"--- [ACTION: BAN] Сообщение в чат отправлено. Отправка подтверждения администратору... ---")
             await message.answer(f"✅ Пользователь <b>{user_name}</b> успешно забанен.")
+        # ... (остальные действия kick, mute, warn без изменений) ...
         elif action == "kick":
-            logger.info(f"--- [ACTION: KICK] Попытка кикнуть пользователя {user_id_to_moderate} из чата {chat_id} ---")
             await bot.ban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate)
             await bot.unban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate, only_if_banned=True)
             await bot.send_message(chat_id, f"👋 Администратор {admin_mention} исключил пользователя {user_mention}.")
             await message.answer(f"✅ Пользователь <b>{user_name}</b> успешно кикнут.")
         elif action == "mute":
-            logger.info(f"--- [ACTION: MUTE] Попытка заглушить пользователя {user_id_to_moderate} в чате {chat_id} ---")
             mute_duration = timedelta(hours=1)
             await bot.restrict_chat_member(
                 chat_id=chat_id, user_id=user_id_to_moderate,
@@ -210,36 +210,30 @@ async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
             await bot.send_message(chat_id, f"🔇 Администратор {admin_mention} ограничил возможность писать для {user_mention} на 1 час.")
             await message.answer(f"✅ Пользователь <b>{user_name}</b> был заглушен на 1 час.")
         elif action == "warn":
-            logger.info(f"--- [ACTION: WARN] Попытка предупредить пользователя {user_mention} в чате {chat_id} ---")
             await bot.send_message(chat_id, f"⚠️ Администратор {admin_mention} вынес предупреждение пользователю {user_mention}. Пожалуйста, соблюдайте правила.")
             await message.answer(f"✅ Предупреждение пользователю <b>{user_name}</b> отправлено.")
         else:
-            logger.warning(f"--- [ОШИБКА] Получено неизвестное действие: {action} ---")
+            logger.warning(f"--- [WebApp] Получено неизвестное действие: {action} ---")
             await message.answer(f"Ошибка: неизвестное действие '{action}'.")
-        logger.info(f"--- [ШАГ 7] Обработчик web_app_data успешно завершил работу для действия '{action}'. ---")
+
     except TelegramAPIError as e:
-        logger.error(f"--- [КРИТИЧЕСКАЯ ОШИБКА API TELEGRAM] {e.message} ---", exc_info=True)
+        logger.error(f"--- [WebApp] Критическая ошибка API Telegram: {e.message} ---", exc_info=True)
         await message.answer(
             f"❌ <b>Не удалось выполнить действие.</b>\n"
             f"<b>Причина от Telegram:</b> {e.message}\n\n"
-            f"<i>Убедитесь, что боту выданы все необходимые права в группе (бан пользователей, отправка сообщений и т.д.).</i>"
+            f"<i>Убедитесь, что боту выданы все необходимые права в группе.</i>"
         )
     except Exception as e:
-        logger.error(f"--- [КРИТИЧЕСКАЯ НЕПРЕДВИДЕННАЯ ОШИБКА] {e} ---", exc_info=True)
+        logger.error(f"--- [WebApp] Критическая непредвиденная ошибка: {e} ---", exc_info=True)
         await message.answer(f"❌ Произошла непредвиденная внутренняя ошибка сервера.")
 
 # --- 7. API ДЛЯ WEB APP И ОБРАБОТЧИКИ ВЕБ-СЕРВЕРА ---
 async def index_handler(request: web.Request):
-    logger.info(f"--- [Web Server] Запрос на главную страницу ('/') ---")
     index_path = os.path.join(os.path.dirname(__file__), 'index.html')
-    if os.path.exists(index_path):
-        logger.info(f"Файл index.html найден по пути: {index_path}")
-        return web.FileResponse(index_path)
-    else:
-        logger.error(f"Файл index.html НЕ НАЙДЕН по пути: {index_path}")
-        return web.Response(text="404: Page not found", status=404)
+    return web.FileResponse(index_path)
 
 async def get_chat_info_api_handler(request: web.Request):
+    # ... (код API остается без изменений) ...
     logger.info("--- [API] Запрос на /api/chat_info ---")
     db_pool = request.app['db_pool']
     bot_from_app = request.app["bot"]
@@ -289,12 +283,18 @@ async def get_chat_info_api_handler(request: web.Request):
         logger.error(f"Ошибка API: {e}", exc_info=True)
         return web.json_response({"error": "Внутренняя ошибка сервера"}, status=500)
 
+# --- ИЗМЕНЕНИЕ: Обработчик Webhook с проверкой секрета ---
 async def webhook_route_handler(request: web.Request):
+    # Проверяем секретный токен, если он установлен
+    if WEBHOOK_SECRET and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
+        logger.warning("Неверный секретный токен в заголовке!")
+        return web.Response(status=403)
+    
     try:
         bot_instance = request.app['bot']
         db_pool = request.app['db_pool']
         update_data = await request.json()
-        logger.info(f"--- [Webhook] Получен Webhook: {json.dumps(update_data, ensure_ascii=False, indent=2)} ---")
+        logger.info(f"--- [Webhook] Получен Webhook: {json.dumps(update_data, ensure_ascii=False, indent=1)} ---")
         update = Update.model_validate(update_data, context={"bot": bot_instance})
         await dp.feed_update(bot_instance, update, db_pool=db_pool)
         return web.Response()
@@ -302,31 +302,19 @@ async def webhook_route_handler(request: web.Request):
         logger.error(f"Ошибка в главном обработчике webhook: {e}", exc_info=True)
         return web.Response(status=500)
 
-# --- НОВЫЙ КОД: ЛОВУШКА ДЛЯ ОТЛАДКИ ---
-async def debug_webhook_handler(request: web.Request):
-    """
-    Этот обработчик-ловушка для запросов, которые приходят на /webhook/ без токена.
-    Он логирует всё, что получает, чтобы мы могли понять, что это за запросы.
-    """
-    try:
-        body = await request.text()
-        logger.info("--- [!!! DEBUG TRAP !!!] Пойман аномальный запрос на /webhook/ ---")
-        logger.info(f"--- [DEBUG] Headers: {dict(request.headers)}")
-        logger.info(f"--- [DEBUG] Body: {body}")
-        # Возвращаем 200, чтобы клиент не пытался повторить запрос
-        return web.json_response({"status": "debug endpoint hit, request logged"}, status=200)
-    except Exception as e:
-        logger.error(f"--- [!!! DEBUG TRAP !!!] Ошибка в обработчике-ловушке: {e}", exc_info=True)
-        return web.json_response({"status": "error in debug trap"}, status=500)
-
-
 # --- 8. ЗАПУСК ПРИЛОЖЕНИЯ ---
 async def on_startup(app: web.Application):
     if not BASE_WEBHOOK_URL:
         logger.critical("Переменная WEB_APP_URL не установлена! Невозможно установить вебхук.")
         return
     logger.info(f"Установка webhook на URL: {WEBHOOK_URL}")
-    await bot.set_webhook(url=WEBHOOK_URL, allowed_updates=dp.resolve_used_update_types(), drop_pending_updates=True)
+    # --- ИЗМЕНЕНИЕ: передаем secret_token в set_webhook ---
+    await bot.set_webhook(
+        url=WEBHOOK_URL, 
+        allowed_updates=dp.resolve_used_update_types(), 
+        drop_pending_updates=True,
+        secret_token=WEBHOOK_SECRET
+    )
 
 async def on_shutdown(app: web.Application):
     logger.info("Остановка приложения, удаление webhook.")
@@ -341,6 +329,7 @@ async def main():
     except Exception as e:
         logger.critical(f"Не удалось подключиться к БД: {e}", exc_info=True)
         exit(1)
+        
     app = web.Application()
     app["bot"] = bot
     app["db_pool"] = db_pool
@@ -349,11 +338,11 @@ async def main():
     
     app.router.add_get('/', index_handler)
     app.router.add_get(API_PATH, get_chat_info_api_handler)
+    # --- ИЗМЕНЕНИЕ: теперь все запросы на /webhook/{TOKEN} будут проходить через наш обработчик ---
     app.router.add_post(WEBHOOK_PATH, webhook_route_handler)
     
-    # --- НОВАЯ СТРОКА: РЕГИСТРАЦИЯ ЛОВУШКИ ---
-    app.router.add_post("/webhook/", debug_webhook_handler)
-
+    # Ловушку больше не используем, она была нужна только для диагностики
+    
     cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*", allow_methods="*")})
     for route in list(app.router.routes()): cors.add(route)
     
