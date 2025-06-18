@@ -9,7 +9,6 @@ from os import getenv
 from urllib.parse import unquote, parse_qsl
 from collections import OrderedDict
 from datetime import timedelta
-
 import asyncpg
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.enums import ParseMode, ChatMemberStatus
@@ -24,17 +23,17 @@ from aiogram.exceptions import TelegramAPIError
 from aiohttp import web
 from dotenv import load_dotenv
 import aiohttp_cors
-
 import database
 
 # --- 1. НАСТРОЙКА ЛОГГИРОВАНИЯ ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - [%(name)s] - %(message)s')
 logger = logging.getLogger(__name__)
+
 load_dotenv()
 
 # --- 2. ЧТЕНИЕ ПЕРЕМЕННЫХ ---
 BOT_TOKEN = getenv("BOT_TOKEN")
-WEB_APP_URL = getenv("WEB_APP_URL") 
+WEB_APP_URL = getenv("WEB_APP_URL")
 WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = getenv("PORT", "8080")
 
@@ -94,7 +93,6 @@ async def command_start_handler(message: Message):
 
 @dp.my_chat_member()
 async def on_my_chat_member(update: ChatMemberUpdated, db_pool: asyncpg.Pool):
-    # (код без изменений)
     chat_id, chat_title = update.chat.id, update.chat.title
     new_status = update.new_chat_member.status
     if new_status == ChatMemberStatus.ADMINISTRATOR:
@@ -105,11 +103,11 @@ async def on_my_chat_member(update: ChatMemberUpdated, db_pool: asyncpg.Pool):
         await bot.send_message(update.chat.id, status_text, reply_markup=keyboard.as_markup())
     elif new_status in [ChatMemberStatus.MEMBER, ChatMemberStatus.LEFT, ChatMemberStatus.KICKED]:
         await database.remove_chat(db_pool, chat_id)
-        if chat_id in chat_recent_members: del chat_recent_members[chat_id]
+        if chat_id in chat_recent_members:
+            del chat_recent_members[chat_id]
 
 @dp.message(Command("admin"), F.chat.type == "private")
 async def command_admin_panel(message: Message, db_pool: asyncpg.Pool):
-    # (код без изменений)
     user_id = message.from_user.id
     all_managed_chats = await database.get_managed_chats(db_pool)
     admin_in_chats = []
@@ -128,7 +126,6 @@ async def command_admin_panel(message: Message, db_pool: asyncpg.Pool):
 
 @dp.callback_query(F.data.startswith("manage_chat_"))
 async def select_chat_callback(query: CallbackQuery, db_pool: asyncpg.Pool):
-    # (код без изменений)
     chat_id = int(query.data.split("_")[2])
     if not await is_user_admin_in_chat(user_id=query.from_user.id, chat_id=chat_id):
         return await query.answer("Доступ запрещен.", show_alert=True)
@@ -141,7 +138,6 @@ async def select_chat_callback(query: CallbackQuery, db_pool: asyncpg.Pool):
 
 @dp.message(F.chat.type.in_(['group', 'supergroup']), ~F.text.startswith('/'))
 async def remember_member_handler(message: Message):
-    # (код без изменений)
     chat_id = message.chat.id
     user = message.from_user
     if user.is_bot: return
@@ -153,17 +149,12 @@ async def remember_member_handler(message: Message):
     while len(chat_recent_members[chat_id]) > MAX_RECENT_MEMBERS_PER_CHAT:
         chat_recent_members[chat_id].popitem(last=False)
 
-
-# --- ИЗМЕНЕНИЕ: ДОБАВЛЕНО ПОДРОБНОЕ ЛОГИРОВАНИЕ ---
 @dp.message(F.web_app_data)
 async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
-    # Этап 1: Вход в хэндлер
     logger.info("--- [Этап 1] Вход в web_app_data_handler ---")
-    
     try:
         admin_id = message.from_user.id
         logger.info(f"--- [Этап 2] Получен ID администратора: {admin_id} ---")
-
         data_str = message.web_app_data.data
         logger.info(f"--- [Этап 3] Получены сырые данные от WebApp: {data_str} ---")
         
@@ -176,10 +167,9 @@ async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
         if not all([action, user_id_to_moderate, chat_id_str]):
             logger.warning("Неполные данные от WebApp. Выход.")
             return await message.answer("Ошибка: получены неполные данные от приложения.")
-
+        
         chat_id = int(chat_id_str)
         logger.info("--- [Этап 5] Проверка прав администратора... ---")
-
         if not await is_user_admin_in_chat(user_id=admin_id, chat_id=chat_id):
             logger.warning(f"ОТКАЗ В ДОСТУПЕ: Пользователь {admin_id} не админ в чате {chat_id}.")
             return await message.answer("<b>Ошибка прав:</b> Вы не являетесь администратором в целевом чате.")
@@ -200,22 +190,22 @@ async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
             await bot.send_message(chat_id, f"🚫 Администратор {admin_mention} забанил пользователя {user_mention}.")
             await message.answer(f"✅ Пользователь <b>{user_name}</b> успешно забанен.")
         elif action == "kick":
-             await bot.ban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate)
-             await bot.unban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate, only_if_banned=True)
-             await bot.send_message(chat_id, f"👋 Администратор {admin_mention} исключил пользователя {user_mention}.")
-             await message.answer(f"✅ Пользователь <b>{user_name}</b> успешно кикнут.")
+            await bot.ban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate)
+            await bot.unban_chat_member(chat_id=chat_id, user_id=user_id_to_moderate, only_if_banned=True)
+            await bot.send_message(chat_id, f"👋 Администратор {admin_mention} исключил пользователя {user_mention}.")
+            await message.answer(f"✅ Пользователь <b>{user_name}</b> успешно кикнут.")
         elif action == "mute":
-             await bot.restrict_chat_member(
-                 chat_id=chat_id, user_id=user_id_to_moderate,
-                 permissions=types.ChatPermissions(can_send_messages=False),
-                 until_date=timedelta(hours=1)
-             )
-             await bot.send_message(chat_id, f"🔇 Администратор {admin_mention} ограничил возможность писать для {user_mention} на 1 час.")
-             await message.answer(f"✅ Пользователь <b>{user_name}</b> был заглушен на 1 час.")
+            await bot.restrict_chat_member(
+                chat_id=chat_id, user_id=user_id_to_moderate,
+                permissions=types.ChatPermissions(can_send_messages=False),
+                until_date=timedelta(hours=1)
+            )
+            await bot.send_message(chat_id, f"🔇 Администратор {admin_mention} ограничил возможность писать для {user_mention} на 1 час.")
+            await message.answer(f"✅ Пользователь <b>{user_name}</b> был заглушен на 1 час.")
         else:
-             logger.warning(f"Получено неизвестное действие: {action}")
-             await message.answer(f"Ошибка: неизвестное действие '{action}'.")
-
+            logger.warning(f"Получено неизвестное действие: {action}")
+            await message.answer(f"Ошибка: неизвестное действие '{action}'.")
+        
         logger.info(f"--- [Этап 8] Действие '{action}' успешно выполнено. ---")
 
     except TelegramAPIError as e:
@@ -231,24 +221,29 @@ async def web_app_data_handler(message: Message, db_pool: asyncpg.Pool):
 
 # --- 7. API ДЛЯ WEB APP ---
 async def get_chat_info_api_handler(request: web.Request):
-    # (код без изменений)
     db_pool = request.app['db_pool']
     bot_from_app = request.app["bot"]
     auth_header = request.headers.get("Authorization")
+
     if not auth_header or not auth_header.startswith("tma "):
         return web.json_response({"error": "Требуется авторизация"}, status=401)
+    
     init_data = auth_header.split(" ", 1)[1]
     if not is_valid_init_data(init_data, bot_from_app.token):
         return web.json_response({"error": "Неверные данные авторизации"}, status=403)
+        
     try:
         chat_id = int(request.query.get("chat_id"))
         query_params = dict(parse_qsl(unquote(init_data)))
         user_info = json.loads(query_params.get("user", "{}"))
         user_id = user_info.get("id")
+
         if not user_id or not await is_user_admin_in_chat(user_id=user_id, chat_id=chat_id):
             return web.json_response({"error": "Доступ только для администраторов"}, status=403)
+            
         chat_info_db = await db_pool.fetchrow("SELECT chat_title FROM managed_chats WHERE chat_id = $1", chat_id)
-        if not chat_info_db: return web.json_response({"error": "Бот не управляет этим чатом"}, status=404)
+        if not chat_info_db:
+            return web.json_response({"error": "Бот не управляет этим чатом"}, status=404)
         
         all_members = OrderedDict()
         admins = await bot_from_app.get_chat_administrators(chat_id)
@@ -258,7 +253,8 @@ async def get_chat_info_api_handler(request: web.Request):
         
         if chat_id in chat_recent_members:
             for uid, uinfo in reversed(chat_recent_members[chat_id].items()):
-                if uid not in all_members: all_members[uid] = uinfo
+                if uid not in all_members:
+                    all_members[uid] = uinfo
         
         final_list = []
         for user_id_key, user_data in all_members.items():
@@ -268,11 +264,14 @@ async def get_chat_info_api_handler(request: web.Request):
                 if photos.photos:
                     file = await bot.get_file(photos.photos[0][-1].file_id)
                     user_data['photo_url'] = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
-                else: user_data['photo_url'] = None
-            except Exception: user_data['photo_url'] = None
+                else:
+                    user_data['photo_url'] = None
+            except Exception:
+                user_data['photo_url'] = None
             final_list.append(user_data)
         
         return web.json_response({"chat_title": chat_info_db['chat_title'], "members": final_list})
+        
     except Exception as e:
         logger.error(f"Ошибка API: {e}", exc_info=True)
         return web.json_response({"error": "Внутренняя ошибка сервера"}, status=500)
@@ -283,12 +282,11 @@ async def index_handler(request: web.Request):
 
 # --- Обработчик Webhook ---
 async def webhook_route_handler(request: web.Request):
-    # (код без изменений)
     try:
         bot_instance = request.app['bot']
         db_pool = request.app['db_pool']
         update_data = await request.json()
-        logger.info(f"ПОЛУЧЕН WEBHOOK: {update_data}")
+        logger.info(f"ПОЛУЧЕН WEBHOOK: {json.dumps(update_data, indent=2)}")
         update = Update.model_validate(update_data, context={"bot": bot_instance})
         await dp.feed_update(bot_instance, update, db_pool=db_pool)
         return web.Response()
@@ -296,9 +294,21 @@ async def webhook_route_handler(request: web.Request):
         logger.error(f"Ошибка в обработчике webhook: {e}", exc_info=True)
         return web.Response(status=500)
 
+# --- НОВЫЙ ДИАГНОСТИЧЕСКИЙ ОБРАБОТЧИК ---
+# Этот обработчик должен быть ПОСЛЕ всех остальных обработчиков сообщений и колбэков,
+# но ПЕРЕД регистрацией роутов и запуском приложения.
+@dp.update()
+async def unhandled_update_handler(update: types.Update):
+    """
+    Этот хэндлер перехватывает все обновления, которые не были обработаны
+    другими хэндлерами. Используется для отладки, чтобы увидеть,
+    какие данные приходят от Telegram.
+    """
+    logger.warning(f"--- [ДИАГНОСТИКА] ПОЛУЧЕНО НЕОБРАБОТАННОЕ ОБНОВЛЕНИЕ ---\n{update.model_dump_json(indent=2)}")
+
+
 # --- 8. ЗАПУСК ПРИЛОЖЕНИЯ ---
 async def on_startup(app: web.Application):
-    # (код без изменений)
     logger.info("Установка webhook...")
     await bot.set_webhook(
         url=WEBHOOK_URL,
@@ -307,7 +317,6 @@ async def on_startup(app: web.Application):
     )
 
 async def on_shutdown(app: web.Application):
-    # (код без изменений)
     logger.info("Остановка приложения, удаление webhook.")
     await bot.delete_webhook()
     if 'db_pool' in app:
@@ -315,7 +324,6 @@ async def on_shutdown(app: web.Application):
     await bot.session.close()
 
 async def main():
-    # (код без изменений)
     try:
         db_pool = await asyncpg.create_pool(DATABASE_URL)
         await database.init_db(db_pool)
@@ -334,9 +342,15 @@ async def main():
     app.router.add_get(API_PATH, get_chat_info_api_handler)
     app.router.add_post(WEBHOOK_PATH, webhook_route_handler)
 
-    cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*", allow_methods="*")})
-    for route in list(app.router.routes()): cors.add(route)
-
+    cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(
+        allow_credentials=True, 
+        expose_headers="*", 
+        allow_headers="*", 
+        allow_methods="*"
+    )})
+    for route in list(app.router.routes()):
+        cors.add(route)
+        
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, WEB_SERVER_HOST, int(WEB_SERVER_PORT))
