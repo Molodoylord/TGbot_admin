@@ -51,7 +51,7 @@
                 <h1 class="text-3xl lg:text-4xl font-bold">Панель управления</h1>
                 <p id="group-name" class="text-sm text-gray-400">Группа: Загрузка...</p>
             </header>
-            
+                         
             <nav class="flex justify-center bg-gray-800 backdrop-blur-xl border border-white/10 rounded-xl p-1 max-w-lg mx-auto mb-6">
                 <button onclick="switchTab('moderation', this)" class="tab-btn flex-1 py-2 px-4 rounded-lg">Модерация</button>
                 <button onclick="switchTab('stats', this)" class="tab-btn flex-1 py-2 px-4 rounded-lg">Статистика</button>
@@ -65,7 +65,7 @@
                     <h3 class="text-xl font-semibold text-red-300">Произошла ошибка</h3>
                     <p id="error-message" class="text-red-400 mt-2"></p>
                 </div>
-                
+                                 
                 <div id="app-content" class="hidden">
                     <div id="moderation" class="tab-content">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -88,7 +88,7 @@
                                         <button onclick="handleAction('ban')" class="btn-press flex items-center justify-center bg-red-600/80 hover:bg-red-600 font-bold py-3 px-4 rounded-xl">Забанить</button>
                                     </div>
                                     <p class="text-xs text-gray-500 mt-4 text-center">
-                                           ℹ  ️ Результат выполнения команды появится в вашем личном чате с ботом.
+                                           ℹ️  Результат выполнения команды появится в вашем личном чате с ботом.
                                     </p>
                                 </div>
                             </div>
@@ -135,7 +135,7 @@
     const errorStateEl = document.getElementById('error-state');
     const errorMessageEl = document.getElementById('error-message');
     const appContentEl = document.getElementById('app-content');
-    
+
     function showToast(message, type = 'info') { // type: 'info', 'success', 'error'
         if (tg && tg.HapticFeedback) {
             if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
@@ -150,7 +150,7 @@
     }
 
     function renderUsers(members) {
-        userListDiv.innerHTML = ''; 
+        userListDiv.innerHTML = '';
         if (!members || members.length === 0) {
             userListDiv.innerHTML = '<p class="text-gray-400">Участники не найдены. Возможно, в чате давно не было сообщений.</p>';
             return;
@@ -206,7 +206,7 @@
         if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     }
     
-    // ВОЗВРАЩАЕМ ВЕРСИЮ С АВТОЗАКРЫТИЕМ
+    // --- ИЗМЕНЕННАЯ ФУНКЦИЯ ---
     function handleAction(action) {
         if (!selectedUser) {
             showToast("Сначала выберите пользователя из списка!", 'error');
@@ -216,19 +216,20 @@
             showToast("ID чата не определен! Ошибка инициализации.", 'error');
             return;
         }
-        
+
         const dataToSend = {
             action: action,
             user_id: selectedUser.id,
             chat_id: String(currentChatId)
         };
+
         try {
-            // Уведомляем пользователя
-            showToast(`Команда '${action}' отправлена. Закрытие панели...`, 'success');
-            
-            // Отправляем данные и сразу закрываем Web App.
+            // Отправляем данные в Telegram
             Telegram.WebApp.sendData(JSON.stringify(dataToSend));
-            Telegram.WebApp.close();
+
+            // ВАЖНО: Мы больше не закрываем окно сразу.
+            // Мы показываем уведомление и ждем подтверждения от бота в личном чате.
+            showToast(`Команда '${action}' отправлена боту. Пожалуйста, проверьте личный чат с ботом для подтверждения.`, 'success');
             
         } catch (e) {
             console.error("Ошибка при отправке данных:", e);
@@ -242,7 +243,6 @@
         
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
         clickedButton.classList.add('tab-active');
-
         if (!document.querySelector('.tab-active')) {
              document.querySelector('.tab-btn').classList.add('tab-active');
         }
@@ -296,15 +296,18 @@
                     'Authorization': `tma ${tg.initData}`
                 }
             });
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: `Сервер вернул ошибку ${response.status}` }));
                 throw new Error(`Не удалось загрузить данные: ${errorData.error || 'Неизвестная ошибка сервера'}`);
             }
+
             const data = await response.json();
             
             groupNameEl.textContent = `Группа: ${data.chat_title}`;
             renderUsers(data.members);
             showContent();
+
         } catch (error) {
             console.error("Ошибка инициализации:", error);
             showError(error.message);
