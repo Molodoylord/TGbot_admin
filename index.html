@@ -15,23 +15,20 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            color: #E5E7EB;
+            color: var(--tg-theme-text-color);
+            background-color: var(--tg-theme-bg-color);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             overflow-x: hidden;
         }
-        .animated-gradient {
-            background: linear-gradient(-45deg, #1d2b64, #4e345f, #1d2b64, #3c1e4e);
-            background-size: 400% 400%;
-            animation: gradient 25s ease infinite;
+        .tab-active {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            font-weight: 600;
         }
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        * {
-            transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease-out, box-shadow 0.3s ease;
+        .btn-press:active {
+            transform: scale(0.96);
+            filter: brightness(0.9);
         }
         .tab-content {
             animation: fadeIn 0.5s ease-in-out;
@@ -40,170 +37,190 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .tab-active {
-            background-color: rgba(255, 255, 255, 0.15);
-            color: white;
-            font-weight: 600;
-        }
-        .btn-press:active {
-            transform: scale(0.96);
-            filter: brightness(0.9);
-        }
+        /* Стилизация скроллбара под цвета Telegram */
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+        ::-webkit-scrollbar-track { background: var(--tg-theme-secondary-bg-color); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--tg-theme-hint-color); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--tg-theme-link-color); }
     </style>
 </head>
-<body class="animated-gradient">
+<body class="bg-gray-900 text-gray-200">
     <div id="app" class="min-h-screen p-4 md:p-6">
         <div class="max-w-7xl mx-auto">
             <header class="text-center mb-6">
-                <h1 class="text-3xl lg:text-4xl font-bold text-white drop-shadow-lg">Панель управления</h1>
-                <p id="group-name" class="text-sm text-gray-300 drop-shadow-md">Группа: Загрузка...</p>
+                <h1 class="text-3xl lg:text-4xl font-bold">Панель управления</h1>
+                <p id="group-name" class="text-sm text-gray-400">Группа: Загрузка...</p>
             </header>
             
-            <nav class="flex justify-center bg-black/30 backdrop-blur-xl border border-white/10 rounded-xl p-1 max-w-lg mx-auto mb-6">
-                <button onclick="switchTab('moderation', this)" class="tab-btn tab-active flex-1 py-2 px-4 rounded-lg">Модерация</button>
-                <button onclick="switchTab('stats', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Статистика</button>
-                <button onclick="switchTab('logs', this)" class="tab-btn text-gray-300 flex-1 py-2 px-4 rounded-lg">Логи</button>
+            <nav class="flex justify-center bg-gray-800 backdrop-blur-xl border border-white/10 rounded-xl p-1 max-w-lg mx-auto mb-6">
+                <button onclick="switchTab('moderation', this)" class="tab-btn flex-1 py-2 px-4 rounded-lg">Модерация</button>
+                <button onclick="switchTab('stats', this)" class="tab-btn flex-1 py-2 px-4 rounded-lg">Статистика</button>
+                <button onclick="switchTab('logs', this)" class="tab-btn flex-1 py-2 px-4 rounded-lg">Логи</button>
             </nav>
+
             <main id="main-content">
-                <div id="moderation" class="tab-content">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-1 space-y-6">
-                            <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                                <div class="flex items-center space-x-4">
-                                    <img id="user-avatar" src="https://placehold.co/64x64/333/fff?text=?" alt="Аватар пользователя" class="w-16 h-16 rounded-full border-2 border-purple-400 object-cover">
-                                    <div>
-                                        <h2 id="user-name" class="text-xl font-bold text-white">Выберите пользователя</h2>
-                                        <p id="user-id" class="text-xs text-gray-400">ID: N/A</p>
+                <div id="loading-state" class="text-center p-10">
+                    <p>Загрузка данных...</p>
+                </div>
+
+                <div id="error-state" class="hidden text-center p-10 bg-red-900/50 rounded-lg">
+                    <h3 class="text-xl font-semibold text-red-300">Произошла ошибка</h3>
+                    <p id="error-message" class="text-red-400 mt-2"></p>
+                </div>
+                
+                <div id="app-content" class="hidden">
+                    <div id="moderation" class="tab-content">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-1 space-y-6">
+                                <div class="bg-gray-800 p-5 rounded-2xl shadow-lg">
+                                    <div class="flex items-center space-x-4">
+                                        <img id="user-avatar" src="https://placehold.co/64x64/777/fff?text=?" alt="Аватар" class="w-16 h-16 rounded-full border-2 border-purple-400 object-cover">
+                                        <div>
+                                            <h2 id="user-name" class="text-xl font-bold">Выберите пользователя</h2>
+                                            <p id="user-id" class="text-xs text-gray-400">ID: N/A</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                                <h3 class="text-lg font-semibold mb-4 text-white">Действия</h3>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <button onclick="handleAction('warn')" class="btn-press flex items-center justify-center bg-yellow-500/80 hover:bg-yellow-500 text-white font-bold py-3 px-4 rounded-xl">Предупредить</button>
-                                    <button onclick="handleAction('mute')" class="btn-press flex items-center justify-center bg-blue-500/80 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl">Заглушить</button>
-                                    <button onclick="handleAction('kick')" class="btn-press flex items-center justify-center bg-orange-500/80 hover:bg-orange-500 text-white font-bold py-3 px-4 rounded-xl">Кикнуть</button>
-                                    <button onclick="handleAction('ban')" class="btn-press flex items-center justify-center bg-red-600/80 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-xl">Забанить</button>
+                                <div class="bg-gray-800 p-5 rounded-2xl shadow-lg">
+                                    <h3 class="text-lg font-semibold mb-4">Действия</h3>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <button onclick="handleAction('warn')" class="btn-press flex items-center justify-center bg-yellow-500/80 hover:bg-yellow-500 font-bold py-3 px-4 rounded-xl">Предупредить</button>
+                                        <button onclick="handleAction('mute')" class="btn-press flex items-center justify-center bg-blue-500/80 hover:bg-blue-500 font-bold py-3 px-4 rounded-xl">Заглушить</button>
+                                        <button onclick="handleAction('kick')" class="btn-press flex items-center justify-center bg-orange-500/80 hover:bg-orange-500 font-bold py-3 px-4 rounded-xl">Кикнуть</button>
+                                        <button onclick="handleAction('ban')" class="btn-press flex items-center justify-center bg-red-600/80 hover:bg-red-600 font-bold py-3 px-4 rounded-xl">Забанить</button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-4 text-center">
+                                         ℹ️ Результат выполнения команды появится в вашем личном чате с ботом.
+                                    </p>
                                 </div>
-                                <p class="text-xs text-gray-400 mt-4 text-center">
-                                     ℹ️ После нажатия, результат выполнения команды появится в вашем личном чате с ботом.
-                                </p>
                             </div>
-                        </div>
-                        <div class="lg:col-span-2 bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                            <h3 class="text-lg font-semibold mb-4 text-white">Администраторы и участники</h3>
-                            <div id="user-list" class="space-y-2 max-h-80 lg:max-h-[30rem] overflow-y-auto pr-2">
-                                <p class="text-gray-400">Загрузка участников...</p>
+                            <div class="lg:col-span-2 bg-gray-800 p-5 rounded-2xl shadow-lg">
+                                <h3 class="text-lg font-semibold mb-4">Администраторы и участники</h3>
+                                <div id="user-list" class="space-y-2 max-h-80 lg:max-h-[30rem] overflow-y-auto pr-2">
+                                    <!-- Пользователи будут загружены сюда -->
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div id="stats" class="tab-content hidden">
-                     <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                         <h3 class="text-lg font-semibold mb-4 text-white">Статистика чата</h3>
-                         <p id="stats-content" class="text-gray-300">Раздел в разработке.</p>
-                     </div>
-                 </div>
-                 <div id="logs" class="tab-content hidden">
-                     <div class="bg-black/30 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-white/10">
-                         <h3 class="text-lg font-semibold mb-4 text-white">Логи действий</h3>
-                         <div id="logs-content" class="bg-black/20 p-3 rounded-lg text-sm font-mono text-gray-300 h-80 overflow-y-auto">
-                             <p>Раздел в разработке.</p>
+                    <div id="stats" class="tab-content hidden">
+                         <div class="bg-gray-800 p-5 rounded-2xl shadow-lg">
+                             <h3 class="text-lg font-semibold mb-4">Статистика чата</h3>
+                             <p id="stats-content" class="text-gray-400">Раздел в разработке.</p>
                          </div>
                      </div>
-                 </div>
+                     <div id="logs" class="tab-content hidden">
+                         <div class="bg-gray-800 p-5 rounded-2xl shadow-lg">
+                             <h3 class="text-lg font-semibold mb-4">Логи действий</h3>
+                             <div id="logs-content" class="bg-black/20 p-3 rounded-lg text-sm font-mono text-gray-300 h-80 overflow-y-auto">
+                                 <p>Раздел в разработке.</p>
+                             </div>
+                         </div>
+                     </div>
+                </div>
             </main>
-        </div>
-        <div id="toast" class="fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out z-50">
-            <p id="toast-message"></p>
         </div>
     </div>
 <script>
+    // Глобальные переменные
     const API_BASE_URL = window.location.origin;
-    const tg = window.Telegram.WebApp;
+    let tg;
     let selectedUser = null;
     let currentChatId = null;
+
+    // Элементы DOM
     const groupNameEl = document.getElementById('group-name');
     const userListDiv = document.getElementById('user-list');
     const userAvatarEl = document.getElementById('user-avatar');
     const userNameEl = document.getElementById('user-name');
     const userIdEl = document.getElementById('user-id');
-    const toastEl = document.getElementById('toast');
-    const toastMessageEl = document.getElementById('toast-message');
 
-    function showToast(message, isError = false, duration = 3000) {
-        toastMessageEl.textContent = message;
-        toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl opacity-0 translate-y-10 transition-all duration-500 ease-in-out z-50 ${isError ? 'bg-red-600' : 'bg-green-500'}`;
-        
-        void toastEl.offsetWidth; 
-        
-        toastEl.classList.remove('opacity-0', 'translate-y-10');
-        toastEl.classList.add('opacity-100', 'translate-y-0');
-        setTimeout(() => {
-            toastEl.classList.remove('opacity-100', 'translate-y-0');
-            toastEl.classList.add('opacity-0', 'translate-y-10');
-        }, duration);
+    // Элементы состояний
+    const loadingStateEl = document.getElementById('loading-state');
+    const errorStateEl = document.getElementById('error-state');
+    const errorMessageEl = document.getElementById('error-message');
+    const appContentEl = document.getElementById('app-content');
+
+
+    function showToast(message, type = 'info') { // type: 'info', 'success', 'error'
+        if (tg && tg.HapticFeedback) {
+            if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+            else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+            else tg.HapticFeedback.impactOccurred('light');
+        }
+        if (tg && tg.showAlert) {
+            tg.showAlert(message);
+        } else {
+            alert(message); // Fallback для тестирования в браузере
+        }
     }
 
     function renderUsers(members) {
         userListDiv.innerHTML = ''; 
         if (!members || members.length === 0) {
-            userListDiv.innerHTML = '<p class="text-gray-400">Участники не найдены. Возможно, в чате недавно не было сообщений.</p>';
+            userListDiv.innerHTML = '<p class="text-gray-400">Участники не найдены. Возможно, в чате давно не было сообщений.</p>';
             return;
         }
-        members.forEach(user => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors duration-200';
-            userDiv.onclick = () => selectUser(user);
-            
-            const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
-            const username = user.username ? `@${user.username}` : 'ID: ' + user.id;
-            const placeholderImg = `https://placehold.co/40x40/5c5c8a/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
-            
-            const bannedBadge = user.is_banned 
-                ? '<span class="bg-red-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Забанен</span>'
-                : '';
-            userDiv.innerHTML = `
-                <div class="flex items-center overflow-hidden mr-2">
-                    <img src="${user.photo_url || placeholderImg}" onerror="this.onerror=null;this.src='${placeholderImg}';" alt="Аватар" class="w-10 h-10 rounded-full mr-4 object-cover flex-shrink-0">
-                    <div class="overflow-hidden">
-                        <p class="font-medium text-white truncate">${fullName}</p>
-                        <p class="text-xs text-gray-400 truncate">${username}</p>
+
+        const admins = members.filter(m => m.status === 'administrator' || m.status === 'creator');
+        const recent_users = members.filter(m => m.status !== 'administrator' && m.status !== 'creator');
+
+        const renderList = (title, userArray) => {
+            if(userArray.length === 0) return;
+            const titleEl = document.createElement('h4');
+            titleEl.className = "text-sm font-semibold text-gray-400 mt-4 mb-2 px-1";
+            titleEl.textContent = title;
+            userListDiv.appendChild(titleEl);
+
+            userArray.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'flex items-center justify-between p-3 rounded-lg hover:bg-gray-700/50 cursor-pointer transition-colors duration-200';
+                userDiv.onclick = () => selectUser(user);
+                
+                const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
+                const username = user.username ? `@${user.username}` : 'ID: ' + user.id;
+                const placeholderImg = `https://placehold.co/40x40/777/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
+                
+                const bannedBadge = user.is_banned 
+                    ? '<span class="bg-red-500 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">Забанен</span>'
+                    : '';
+                userDiv.innerHTML = `
+                    <div class="flex items-center overflow-hidden mr-2">
+                        <img src="${user.photo_url || placeholderImg}" onerror="this.onerror=null;this.src='${placeholderImg}';" alt="Аватар" class="w-10 h-10 rounded-full mr-4 object-cover flex-shrink-0">
+                        <div class="overflow-hidden">
+                            <p class="font-medium truncate">${fullName}</p>
+                            <p class="text-xs text-gray-400 truncate">${username}</p>
+                        </div>
                     </div>
-                </div>
-                ${bannedBadge}
-            `;
-            userListDiv.appendChild(userDiv);
-        });
+                    ${bannedBadge}
+                `;
+                userListDiv.appendChild(userDiv);
+            });
+        }
+        
+        renderList('Администраторы', admins);
+        renderList('Недавние участники', recent_users);
     }
 
     function selectUser(user) {
         selectedUser = user;
         const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
-        const placeholderImg = `https://placehold.co/64x64/5c5c8a/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
+        const placeholderImg = `https://placehold.co/64x64/777/ffffff?text=${(user.first_name[0] || '?').toUpperCase()}`;
         
         userAvatarEl.src = user.photo_url || placeholderImg;
         userAvatarEl.onerror = () => { userAvatarEl.src = placeholderImg; };
         userNameEl.textContent = fullName;
         userIdEl.textContent = `ID: ${user.id}`;
-        showToast(`Выбран пользователь: ${fullName}`);
+        
+        showToast(`Выбран пользователь: ${fullName}`, 'info');
     }
 
-    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ДЛЯ ОТЛАДКИ ---
     function handleAction(action) {
-        console.log(`[DEBUG] handleAction called with action: ${action}`);
         if (!selectedUser) {
-            showToast("Сначала выберите пользователя из списка!", true);
-            console.error("[DEBUG] No user selected.");
+            showToast("Сначала выберите пользователя из списка!", 'error');
             return;
         }
         if (!currentChatId) {
-            showToast("ID чата не определен! Ошибка инициализации.", true);
-            console.error("[DEBUG] No chat_id defined.");
+            showToast("ID чата не определен! Ошибка инициализации.", 'error');
             return;
         }
         
@@ -212,24 +229,9 @@
             user_id: selectedUser.id,
             chat_id: currentChatId
         };
-
-        const dataString = JSON.stringify(dataToSend);
-        console.log(`[DEBUG] Preparing to send data: ${dataString}`);
-        showToast(`Отправка команды '${action}'...`, false, 1500);
-
-        try {
-            // Пытаемся отправить данные
-            tg.sendData(dataString);
-
-            // Если код дошел до сюда, значит вызов прошел без JS-ошибки
-            console.log("[DEBUG] tg.sendData() executed successfully from JS perspective.");
-            showToast(`Команда '${action}' была отправлена в Telegram!`, false, 4000);
-            
-        } catch (error) {
-            // Если мы попали сюда, значит сам вызов tg.sendData вызвал ошибку
-            console.error("[DEBUG] CRITICAL: tg.sendData() threw an error:", error);
-            showToast(`КРИТИЧЕСКАЯ ОШИБКА JS: ${error.message}`, true, 6000);
-        }
+        
+        tg.sendData(JSON.stringify(dataToSend));
+        showToast(`Команда '${action}' отправлена боту на исполнение.`, 'success');
     }
 
     function switchTab(tabName, clickedButton) {
@@ -237,26 +239,49 @@
         document.getElementById(tabName).classList.remove('hidden');
         
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('tab-active', 'text-white');
-            btn.classList.add('text-gray-300');
+            btn.classList.remove('tab-active');
         });
-        clickedButton.classList.add('tab-active', 'text-white');
-        clickedButton.classList.remove('text-gray-300');
+        clickedButton.classList.add('tab-active');
+    }
+    
+    function showContent() {
+        loadingStateEl.classList.add('hidden');
+        errorStateEl.classList.add('hidden');
+        appContentEl.classList.remove('hidden');
+    }
+
+    function showError(message) {
+        loadingStateEl.classList.add('hidden');
+        appContentEl.classList.add('hidden');
+        errorMessageEl.textContent = message;
+        errorStateEl.classList.remove('hidden');
     }
 
     async function initialize() {
         try {
+            tg = window.Telegram.WebApp;
             tg.ready();
             tg.expand();
-            
-            const urlParams = new URLSearchParams(window.location.search);
+            // Настроим цвета из темы Telegram
+            document.body.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color);
+            document.body.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color);
+            document.body.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color);
+            document.body.style.setProperty('--tg-theme-link-color', tg.themeParams.link_color);
+            document.body.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color);
+            document.body.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color);
+            document.body.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color);
+
+
+            const urlParams = new URLSearchParams(tg.initDataUnsafe.start_param ? `?${tg.initDataUnsafe.start_param}` : window.location.search);
             currentChatId = urlParams.get('chat_id');
+            
             if (!currentChatId) {
-                throw new Error("ID чата не найден в URL. Откройте панель из группы.");
+                throw new Error("ID чата не найден. Пожалуйста, откройте панель через команду /admin в личном чате с ботом.");
             }
             if (!tg.initData) {
-                throw new Error("Данные Telegram (initData) недоступны. Откройте приложение внутри Telegram.");
+                throw new Error("Данные Telegram (initData) недоступны. Откройте приложение внутри официального клиента Telegram.");
             }
+            
             groupNameEl.textContent = `Группа: Загрузка... (ID: ${currentChatId})`;
             
             const apiUrl = `${API_BASE_URL}/api/chat_info?chat_id=${currentChatId}`;
@@ -266,22 +291,24 @@
                     'Authorization': `tma ${tg.initData}`
                 }
             });
+
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({error: `Ошибка сети или неверный JSON`}));
-                throw new Error(`Ошибка сервера: ${errorData.error || `Статус ${response.status}`}`);
+                const errorData = await response.json().catch(() => ({ error: `Сервер вернул ошибку ${response.status}` }));
+                throw new Error(`Не удалось загрузить данные: ${errorData.error}`);
             }
             const data = await response.json();
             
             groupNameEl.textContent = `Группа: ${data.chat_title}`;
             renderUsers(data.members);
+            showContent();
+
         } catch (error) {
             console.error("Ошибка инициализации:", error);
-            showToast(error.message, true);
-            groupNameEl.textContent = "Ошибка загрузки данных";
-            userListDiv.innerHTML = `<p class="text-red-400 p-4 bg-red-900/50 rounded-lg">${error.message}</p>`;
+            showError(error.message);
+            groupNameEl.textContent = "Ошибка загрузки";
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
         }
     }
-
     document.addEventListener('DOMContentLoaded', initialize);
 </script>
 </body>
