@@ -88,7 +88,7 @@
                                         <button onclick="handleAction('ban')" class="btn-press flex items-center justify-center bg-red-600/80 hover:bg-red-600 font-bold py-3 px-4 rounded-xl">Забанить</button>
                                     </div>
                                     <p class="text-xs text-gray-500 mt-4 text-center">
-                                          ℹ ️ Результат выполнения команды появится в вашем личном чате с ботом.
+                                           ℹ  ️ Результат выполнения команды появится в вашем личном чате с ботом.
                                     </p>
                                 </div>
                             </div>
@@ -135,6 +135,7 @@
     const errorStateEl = document.getElementById('error-state');
     const errorMessageEl = document.getElementById('error-message');
     const appContentEl = document.getElementById('app-content');
+
     function showToast(message, type = 'info') { // type: 'info', 'success', 'error'
         if (tg && tg.HapticFeedback) {
             if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
@@ -147,6 +148,7 @@
             alert(message); // Fallback для тестирования в браузере
         }
     }
+
     function renderUsers(members) {
         userListDiv.innerHTML = ''; 
         if (!members || members.length === 0) {
@@ -190,6 +192,7 @@
         renderList('Администраторы', admins);
         renderList('Недавние участники', recent_users);
     }
+
     function selectUser(user) {
         selectedUser = user;
         const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
@@ -200,10 +203,12 @@
         userNameEl.textContent = fullName;
         userIdEl.textContent = `ID: ${user.id}`;
         
-        showToast(`Выбран пользователь: ${fullName}`, 'info');
+        // Убрал toast при выборе пользователя, чтобы не мешать
+        // showToast(`Выбран пользователь: ${fullName}`, 'info');
+        if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     }
     
-    // НОВАЯ, ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // ИЗМЕНЕННАЯ ВЕРСИЯ БЕЗ TG.CLOSE()
     function handleAction(action) {
         if (!selectedUser) {
             showToast("Сначала выберите пользователя из списка!", 'error');
@@ -217,17 +222,16 @@
         const dataToSend = {
             action: action,
             user_id: selectedUser.id,
-            chat_id: String(currentChatId) // Убедимся, что ID чата это строка
+            chat_id: String(currentChatId) 
         };
 
         try {
-            // Уведомляем пользователя
-            showToast(`Команда '${action}' отправлена. Закрытие панели...`, 'success');
-            
-            // Отправляем данные и сразу закрываем Web App.
-            // Telegram гарантированно присылает web_app_data при вызове close().
+            // Отправляем данные. 
             Telegram.WebApp.sendData(JSON.stringify(dataToSend));
-            Telegram.WebApp.close();
+            
+            // Показываем сообщение и просим пользователя закрыть вручную.
+            // НЕ вызываем Telegram.WebApp.close()!
+            showToast(`Команда '${action}' отправлена. Теперь вы можете закрыть это окно.`, 'success');
             
         } catch (e) {
             console.error("Ошибка при отправке данных:", e);
@@ -239,10 +243,13 @@
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
         document.getElementById(tabName).classList.remove('hidden');
         
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('tab-active');
-        });
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
         clickedButton.classList.add('tab-active');
+
+        // Установим активную вкладку по умолчанию при первой загрузке
+        if (!document.querySelector('.tab-active')) {
+             document.querySelector('.tab-btn').classList.add('tab-active');
+        }
     }
     
     function showContent() {
@@ -250,12 +257,14 @@
         errorStateEl.classList.add('hidden');
         appContentEl.classList.remove('hidden');
     }
+
     function showError(message) {
         loadingStateEl.classList.add('hidden');
         appContentEl.classList.add('hidden');
         errorMessageEl.textContent = message;
         errorStateEl.classList.remove('hidden');
     }
+
     async function initialize() {
         try {
             tg = window.Telegram.WebApp;
@@ -269,6 +278,10 @@
             document.body.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color);
             document.body.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color);
             document.body.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color);
+            
+            // Устанавливаем активную вкладку по умолчанию
+            switchTab('moderation', document.querySelector('.tab-btn'));
+
             const urlParams = new URLSearchParams(tg.initDataUnsafe.start_param ? `?${tg.initDataUnsafe.start_param}` : window.location.search);
             currentChatId = urlParams.get('chat_id');
             
@@ -290,7 +303,7 @@
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: `Сервер вернул ошибку ${response.status}` }));
-                throw new Error(`Не удалось загрузить данные: ${errorData.error}`);
+                throw new Error(`Не удалось загрузить данные: ${errorData.error || 'Неизвестная ошибка сервера'}`);
             }
             const data = await response.json();
             
