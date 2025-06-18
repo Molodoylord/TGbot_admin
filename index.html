@@ -135,7 +135,7 @@
     const errorStateEl = document.getElementById('error-state');
     const errorMessageEl = document.getElementById('error-message');
     const appContentEl = document.getElementById('app-content');
-
+    
     function showToast(message, type = 'info') { // type: 'info', 'success', 'error'
         if (tg && tg.HapticFeedback) {
             if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
@@ -203,12 +203,10 @@
         userNameEl.textContent = fullName;
         userIdEl.textContent = `ID: ${user.id}`;
         
-        // Убрал toast при выборе пользователя, чтобы не мешать
-        // showToast(`Выбран пользователь: ${fullName}`, 'info');
         if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
     }
     
-    // ИЗМЕНЕННАЯ ВЕРСИЯ БЕЗ TG.CLOSE()
+    // ВОЗВРАЩАЕМ ВЕРСИЮ С АВТОЗАКРЫТИЕМ
     function handleAction(action) {
         if (!selectedUser) {
             showToast("Сначала выберите пользователя из списка!", 'error');
@@ -222,16 +220,15 @@
         const dataToSend = {
             action: action,
             user_id: selectedUser.id,
-            chat_id: String(currentChatId) 
+            chat_id: String(currentChatId)
         };
-
         try {
-            // Отправляем данные. 
-            Telegram.WebApp.sendData(JSON.stringify(dataToSend));
+            // Уведомляем пользователя
+            showToast(`Команда '${action}' отправлена. Закрытие панели...`, 'success');
             
-            // Показываем сообщение и просим пользователя закрыть вручную.
-            // НЕ вызываем Telegram.WebApp.close()!
-            showToast(`Команда '${action}' отправлена. Теперь вы можете закрыть это окно.`, 'success');
+            // Отправляем данные и сразу закрываем Web App.
+            Telegram.WebApp.sendData(JSON.stringify(dataToSend));
+            Telegram.WebApp.close();
             
         } catch (e) {
             console.error("Ошибка при отправке данных:", e);
@@ -246,7 +243,6 @@
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
         clickedButton.classList.add('tab-active');
 
-        // Установим активную вкладку по умолчанию при первой загрузке
         if (!document.querySelector('.tab-active')) {
              document.querySelector('.tab-btn').classList.add('tab-active');
         }
@@ -279,7 +275,6 @@
             document.body.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color);
             document.body.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color);
             
-            // Устанавливаем активную вкладку по умолчанию
             switchTab('moderation', document.querySelector('.tab-btn'));
 
             const urlParams = new URLSearchParams(tg.initDataUnsafe.start_param ? `?${tg.initDataUnsafe.start_param}` : window.location.search);
